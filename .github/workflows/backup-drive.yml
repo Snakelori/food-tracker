@@ -1,0 +1,55 @@
+name: Sauvegarde vers Google Drive
+
+# Se déclenche à chaque push sur main, chaque lundi matin, et manuellement.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * 1"   # tous les lundis à 03:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    # Ne s'exécute que si les secrets sont configurés (évite les échecs si non paramétré)
+    if: ${{ github.event_name != 'push' || true }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Créer l'archive du projet
+        run: |
+          ZIP="food-tracker-$(date +%Y-%m-%d).zip"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          zip -r -q "$ZIP" . -x ".git/*"
+          ls -lh "$ZIP"
+
+      - name: Installer rclone
+        run: curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Vérifier les secrets
+        run: |
+          if [ -z "${{ secrets.GDRIVE_SA_JSON }}" ] || [ -z "${{ secrets.GDRIVE_FOLDER_ID }}" ]; then
+            echo "::warning::Secrets GDRIVE_SA_JSON / GDRIVE_FOLDER_ID absents — voir docs/SAUVEGARDE-DRIVE.md. Étape d'envoi ignorée."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Écrire la clé du compte de service
+        if: env.SKIP != '1'
+        run: printf '%s' "$GDRIVE_SA_JSON" > "$RUNNER_TEMP/sa.json"
+        env:
+          GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
+
+      - name: Envoyer l'archive vers Google Drive
+        if: env.SKIP != '1'
+        run: |
+          rclone copy "$ZIP" \
+            ":drive,service_account_file=$RUNNER_TEMP/sa.json,root_folder_id=$FOLDER_ID:" \
+            --drive-use-trash=false --verbose
+          echo "✅ Sauvegarde $ZIP envoyée sur Google Drive."
+        env:
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+
+      - name: Nettoyer la clé
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
