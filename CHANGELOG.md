@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.6] — 2026-07-26
+### Enrichi
+- Nouvelle catégorie **🥗 Salades** : 27 types (César, niçoise, grecque, chèvre chaud,
+  landaise, caprese, salades de pâtes/riz/quinoa/lentilles, crudités…) avec valeurs
+  nutritionnelles. À charger via `supabase/produits-salades.sql`.
+
 ## [2.2.5] — 2026-07-26
 ### Enrichi
 - Catégorie **Desserts** : ajout de 12 **types de flan** (pâtissier, parisien, caramel,
