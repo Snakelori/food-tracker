@@ -49,6 +49,27 @@ function todayISO() { const d = new Date(); return d.toISOString().slice(0, 10);
 function dateDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function average(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
 function feelColor(v) { return v >= 4 ? "var(--green)" : v >= 3 ? "var(--lemon)" : v >= 2 ? "var(--peach)" : "var(--danger)"; }
+
+/* Nutrition : facteur de quantité et calcul par portion */
+const QTY_FACTOR = { petite: 0.6, moyenne: 1, grande: 1.5 };
+function qtyFactor(kind, number) { return kind === "nombre" ? (Number(number) || 1) : (QTY_FACTOR[kind] ?? 1); }
+function nutriFromProduct(prod, kind, number) {
+  if (!prod || prod.energy_kcal == null || prod.portion_g == null) return null;
+  const grams = prod.portion_g * qtyFactor(kind, number);
+  const f = grams / 100;
+  return {
+    grams,
+    kcal: (prod.energy_kcal || 0) * f, carb: (prod.carb_g || 0) * f,
+    sugar: (prod.sugar_g || 0) * f, fat: (prod.fat_g || 0) * f,
+    prot: (prod.protein_g || 0) * f, salt: (prod.salt_g || 0) * f,
+  };
+}
+function itemNutrition(item) { return nutriFromProduct(item.products, item.quantity_kind, item.quantity_number); }
+function portionKcal(p) { return (p.energy_kcal == null || p.portion_g == null) ? null : Math.round(p.energy_kcal * p.portion_g / 100); }
+function addNutri(a, b) { if (!b) return a; for (const k of ["kcal", "carb", "sugar", "fat", "prot", "salt"]) a[k] += b[k]; return a; }
+function emptyNutri() { return { kcal: 0, carb: 0, sugar: 0, fat: 0, prot: 0, salt: 0 }; }
+const r0 = n => Math.round(n);
+const r1 = n => Math.round(n * 10) / 10;
 function el(id) { return document.getElementById(id); }
 function esc(s) { return (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function mealMeta(key) { return MEAL_TYPES.find(m => m.key === key) || MEAL_TYPES[0]; }
@@ -174,7 +195,7 @@ async function loadCatalog() {
 async function loadDay(date) {
   const [meals, drinks, health, activities] = await Promise.all([
     supabase.from("meals")
-      .select("*, meal_items(*, products(name,emoji))")
+      .select("*, meal_items(*, products(name,emoji,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))")
       .eq("meal_date", date).order("meal_time", { nullsFirst: false }),
     supabase.from("drinks").select("*").eq("log_date", date),
     supabase.from("health_states").select("*").eq("log_date", date).order("log_time"),
@@ -200,10 +221,17 @@ async function renderJournee() {
   const nbVerres = day.drinks.reduce((s, d) => s + Number(d.glasses || 0), 0);
   const calBrulees = day.activities.reduce((s, a) => s + (a.calories || 0), 0);
 
+  // Totaux nutritionnels du jour (aliments reconnus du catalogue)
+  const dayNutri = emptyNutri();
+  for (const m of day.meals) for (const it of (m.meal_items || [])) addNutri(dayNutri, itemNutrition(it));
+
   let html = `
     <div class="day-summary">
+      <div class="stat-tile"><div class="v">${r0(dayNutri.kcal) || "–"}</div><div class="l">kcal ingérées</div></div>
+      <div class="stat-tile"><div class="v">${r0(dayNutri.sugar) || "–"}<span class="u">g</span></div><div class="l">sucre</div></div>
+      <div class="stat-tile"><div class="v">${r0(dayNutri.fat) || "–"}<span class="u">g</span></div><div class="l">mat. grasses</div></div>
       <div class="stat-tile"><div class="v">${nbAliments}</div><div class="l">aliments</div></div>
-      <div class="stat-tile"><div class="v">${nbVerres}</div><div class="l">verres bus</div></div>
+      <div class="stat-tile"><div class="v">${r1(nbVerres)}</div><div class="l">verres bus</div></div>
       <div class="stat-tile"><div class="v">${calBrulees || "–"}</div><div class="l">kcal dépensées</div></div>
     </div>`;
 
@@ -359,20 +387,30 @@ function openAddItemModal(mealTypeKey) {
   const customInput = overlay.querySelector("#custom-name");
   const saveBtn = overlay.querySelector("#save-item");
 
+  // Index de tous les produits par id (pour retrouver la nutrition au clic)
+  const prodById = new Map();
+  for (const c of state.categories) for (const p of (state.productsByCat[c.id] || [])) prodById.set(p.id, p);
+
   catTabs.innerHTML = state.categories.map(c =>
     `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
 
   function renderProducts() {
     const list = state.productsByCat[activeCat] || [];
-    grid.innerHTML = list.length ? list.map(p =>
-      `<button class="product-btn ${selected.has(p.id) ? "selected" : ""}" data-prod="${p.id}" data-emoji="${p.emoji || "🍴"}" data-name="${esc(p.name)}">
+    grid.innerHTML = list.length ? list.map(p => {
+      const kc = portionKcal(p);
+      return `<button class="product-btn ${selected.has(p.id) ? "selected" : ""}" data-prod="${p.id}">
         <span class="pe">${p.emoji || "🍴"}</span>${esc(p.name)}
-        ${selected.has(p.id) ? '<span class="pick-check">✓</span>' : ""}</button>`).join("")
+        ${kc != null ? `<span class="pkcal">${kc} kcal</span>` : ""}
+        ${selected.has(p.id) ? '<span class="pick-check">✓</span>' : ""}</button>`;
+    }).join("")
       : `<p class="empty-hint">Aucun produit. Ajoutez-en dans Réglages.</p>`;
     grid.querySelectorAll("[data-prod]").forEach(b => b.onclick = () => {
       const id = b.dataset.prod;
       if (selected.has(id)) selected.delete(id);
-      else selected.set(id, { product_id: id, name: b.dataset.name, emoji: b.dataset.emoji, quantity_kind: "moyenne", quantity_number: null });
+      else {
+        const p = prodById.get(id);
+        selected.set(id, { product_id: id, name: p.name, emoji: p.emoji || "🍴", prod: p, quantity_kind: "moyenne", quantity_number: null });
+      }
       renderProducts();
       renderTray();
     });
@@ -385,25 +423,34 @@ function openAddItemModal(mealTypeKey) {
       ? `Ajouter ${entries.length} aliment${entries.length > 1 ? "s" : ""}`
       : "Ajouter";
     if (!entries.length) { tray.innerHTML = ""; return; }
+    const nutriLine = it => {
+      const n = it.prod ? nutriFromProduct(it.prod, it.quantity_kind, it.quantity_number) : null;
+      return n ? `<div class="tray-nutri">🔥 ${r0(n.kcal)} kcal · 🍬 ${r1(n.sugar)} g · 🧈 ${r1(n.fat)} g</div>` : "";
+    };
     tray.innerHTML = `<div class="tray-count">Sélection (${entries.length}) — précisez la quantité :</div>` +
       entries.map(([key, it]) => `
         <div class="tray-item" data-key="${key}">
-          <span class="tname">${it.emoji} ${esc(it.name)}</span>
-          <select class="tray-kind">
-            ${QTY_KINDS.map(q => `<option value="${q.key}" ${q.key === it.quantity_kind ? "selected" : ""}>${q.label}</option>`).join("")}
-          </select>
-          <input type="number" class="tray-num" placeholder="Nb" step="0.5" min="0"
-            value="${it.quantity_number ?? ""}" style="${it.quantity_kind === "nombre" ? "" : "display:none"}">
-          <button class="rm" title="Retirer">✕</button>
+          <div class="tray-line">
+            <span class="tname">${it.emoji} ${esc(it.name)}</span>
+            <select class="tray-kind">
+              ${QTY_KINDS.map(q => `<option value="${q.key}" ${q.key === it.quantity_kind ? "selected" : ""}>${q.label}</option>`).join("")}
+            </select>
+            <input type="number" class="tray-num" placeholder="Nb" step="0.5" min="0"
+              value="${it.quantity_number ?? ""}" style="${it.quantity_kind === "nombre" ? "" : "display:none"}">
+            <button class="rm" title="Retirer">✕</button>
+          </div>
+          <div class="tray-nutri-slot">${nutriLine(it)}</div>
         </div>`).join("");
     tray.querySelectorAll(".tray-item").forEach(row => {
       const key = row.dataset.key;
       const it = selected.get(key);
+      const refreshNutri = () => { row.querySelector(".tray-nutri-slot").innerHTML = nutriLine(it); };
       row.querySelector(".tray-kind").onchange = (e) => {
         it.quantity_kind = e.target.value;
         row.querySelector(".tray-num").style.display = e.target.value === "nombre" ? "" : "none";
+        refreshNutri();
       };
-      row.querySelector(".tray-num").oninput = (e) => { it.quantity_number = e.target.value ? Number(e.target.value) : null; };
+      row.querySelector(".tray-num").oninput = (e) => { it.quantity_number = e.target.value ? Number(e.target.value) : null; refreshNutri(); };
       row.querySelector(".rm").onclick = () => {
         selected.delete(key);
         renderProducts();
@@ -695,7 +742,7 @@ async function renderAnalyses() {
     b.onclick = () => { state.statsPeriod = Number(b.dataset.p); renderAnalyses(); });
 
   const [mealsRes, healthRes, drinksRes, actsRes] = await Promise.all([
-    supabase.from("meals").select("id, meal_date, meal_items(custom_name, products(name,emoji,category_id))").gte("meal_date", from),
+    supabase.from("meals").select("id, meal_date, meal_items(custom_name, quantity_kind, quantity_number, products(name,emoji,category_id,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))").gte("meal_date", from),
     supabase.from("health_states").select("meal_id, log_date, feeling, symptoms").gte("log_date", from),
     supabase.from("drinks").select("drink_type, glasses, log_date").gte("log_date", from),
     supabase.from("activities").select("activity_date, duration_min, calories").gte("activity_date", from),
@@ -712,6 +759,7 @@ async function renderAnalyses() {
   const foodFreq = new Map(), catFreq = new Map();
   const daysSet = new Set();
   let totalItems = 0;
+  const nutriTotal = emptyNutri();
   for (const m of meals) {
     daysSet.add(m.meal_date);
     const prods = (m.meal_items || []).map(itemInfo);
@@ -723,6 +771,7 @@ async function renderAnalyses() {
       f.count++; foodFreq.set(p.name, f);
       if (p.cat) catFreq.set(p.cat, (catFreq.get(p.cat) || 0) + 1);
     }
+    for (const it of (m.meal_items || [])) addNutri(nutriTotal, itemNutrition(it));
   }
 
   // Corrélation aliment ↔ ressenti + ressenti par jour
@@ -817,6 +866,23 @@ async function renderAnalyses() {
     <div class="stat-tile"><div class="v">${kFeelEmoji}${kFeel ? " " + kFeel : ""}</div><div class="l">ressenti moyen</div></div>
     <div class="stat-tile"><div class="v">${acts.length}</div><div class="l">activités</div></div>
   </div>`;
+
+  // Nutrition estimée (moyenne par jour)
+  if (nutriTotal.kcal > 0) {
+    const avg = k => nutriTotal[k] / nDays;
+    html += `<div class="analysis-card">
+      <h3>🍽️ Nutrition estimée <span style="font-size:12px;color:var(--ink-soft);font-weight:600">· moyenne/jour</span></h3>
+      <div class="day-summary" style="margin:6px 0 0">
+        <div class="stat-tile"><div class="v">${r0(avg("kcal"))}</div><div class="l">kcal</div></div>
+        <div class="stat-tile"><div class="v">${r0(avg("carb"))}<span class="u">g</span></div><div class="l">glucides</div></div>
+        <div class="stat-tile"><div class="v">${r0(avg("sugar"))}<span class="u">g</span></div><div class="l">dont sucres</div></div>
+        <div class="stat-tile"><div class="v">${r0(avg("fat"))}<span class="u">g</span></div><div class="l">mat. grasses</div></div>
+        <div class="stat-tile"><div class="v">${r0(avg("prot"))}<span class="u">g</span></div><div class="l">protéines</div></div>
+        <div class="stat-tile"><div class="v">${r1(avg("salt"))}<span class="u">g</span></div><div class="l">sel</div></div>
+      </div>
+      <p class="sub" style="margin-top:10px">Estimation d'après les valeurs moyennes du catalogue et la taille de portion. Les aliments saisis librement (hors catalogue) ne sont pas comptés.</p>
+    </div>`;
+  }
 
   // Aliments à surveiller
   html += `<div class="analysis-card">
@@ -992,6 +1058,19 @@ function openAddProductModal() {
       <select id="p-cat">${state.categories.map(c => `<option value="${c.id}">${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
     <div class="field"><label>Nom du produit</label><input type="text" id="p-name" placeholder="Ex : Houmous"></div>
     <div class="field"><label>Emoji (optionnel)</label><input type="text" id="p-emoji" placeholder="🥙" maxlength="4"></div>
+
+    <div class="nutri-form">
+      <div class="nutri-form-title">Valeurs nutritionnelles <span>(optionnel — pour 100 g)</span></div>
+      <div class="nutri-grid">
+        <label>Énergie (kcal)<input type="number" id="n-kcal" min="0" step="1"></label>
+        <label>Glucides (g)<input type="number" id="n-carb" min="0" step="0.1"></label>
+        <label>dont sucres (g)<input type="number" id="n-sugar" min="0" step="0.1"></label>
+        <label>Mat. grasses (g)<input type="number" id="n-fat" min="0" step="0.1"></label>
+        <label>Protéines (g)<input type="number" id="n-prot" min="0" step="0.1"></label>
+        <label>Sel (g)<input type="number" id="n-salt" min="0" step="0.01"></label>
+        <label>Portion (g)<input type="number" id="n-portion" min="0" step="1" placeholder="ex : 100"></label>
+      </div>
+    </div>
     <button class="btn btn-primary btn-block" id="save-product">Ajouter à mon catalogue</button>
   `);
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
@@ -999,9 +1078,12 @@ function openAddProductModal() {
     const name = overlay.querySelector("#p-name").value.trim();
     cat = overlay.querySelector("#p-cat").value;
     if (!name) return toast("Indiquez un nom", "err");
+    const num = id => { const v = overlay.querySelector(id).value; return v === "" ? null : Number(v); };
     const { error } = await supabase.from("products").insert({
       category_id: cat, name, emoji: overlay.querySelector("#p-emoji").value.trim() || null,
       user_id: state.user.id,
+      energy_kcal: num("#n-kcal"), carb_g: num("#n-carb"), sugar_g: num("#n-sugar"),
+      fat_g: num("#n-fat"), protein_g: num("#n-prot"), salt_g: num("#n-salt"), portion_g: num("#n-portion"),
     });
     if (error) return toast("Erreur : " + error.message, "err");
     closeModal(overlay); toast("Produit ajouté", "ok");

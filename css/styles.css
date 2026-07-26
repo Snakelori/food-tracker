@@ -250,6 +250,7 @@ body {
   border-radius: var(--radius-sm); padding: 13px; text-align: center; box-shadow: var(--shadow-sm);
 }
 .stat-tile .v { font-size: 22px; font-weight: 800; color: var(--green-deep); }
+.stat-tile .v .u { font-size: 13px; font-weight: 700; margin-left: 1px; }
 .stat-tile .l { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
 
 /* ============================================================
@@ -291,6 +292,15 @@ body {
 .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--green); background: #fff; }
 
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Formulaire de valeurs nutritionnelles */
+.nutri-form { background: #fafcfb; border: 1px solid var(--line); border-radius: 14px; padding: 12px 13px; margin-bottom: 15px; }
+.nutri-form-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+.nutri-form-title span { color: var(--ink-soft); font-weight: 500; }
+.nutri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.nutri-grid label { font-size: 11.5px; font-weight: 600; color: var(--ink-soft); display: flex; flex-direction: column; gap: 4px; }
+.nutri-grid input { font-family: inherit; font-size: 15px; padding: 9px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
+.nutri-grid input:focus { outline: none; border-color: var(--green); }
 .chip {
   border: 1.5px solid var(--line); background: #fff;
   border-radius: 20px; padding: 8px 14px;
@@ -315,6 +325,7 @@ body {
   display: flex; flex-direction: column; align-items: center; gap: 5px;
 }
 .product-btn .pe { font-size: 24px; }
+.product-btn .pkcal { font-size: 10.5px; color: var(--ink-soft); font-weight: 600; margin-top: 1px; }
 .product-btn:active { transform: scale(.95); }
 .product-btn.selected { border-color: var(--green); background: var(--green-soft); }
 .product-btn { position: relative; }
@@ -332,9 +343,11 @@ body {
 .tray { margin: 4px 0 14px; display: flex; flex-direction: column; gap: 7px; }
 .tray-count { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin: 4px 2px 2px; }
 .tray-item {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; gap: 5px;
   background: #fafcfb; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px;
 }
+.tray-line { display: flex; align-items: center; gap: 8px; }
+.tray-nutri { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; padding-left: 2px; }
 .tray-item .tname { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tray-item select, .tray-item input[type=number] {
   font-family: inherit; font-size: 13px; padding: 7px 9px;

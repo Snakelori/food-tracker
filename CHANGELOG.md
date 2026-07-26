@@ -3,6 +3,17 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.1.0] — 2026-07-26
+### Ajouté — Valeurs nutritionnelles
+- Chaque produit porte désormais : **énergie, glucides, dont sucres, matières grasses,
+  protéines, sel** (pour 100 g) et un **poids de portion**.
+- Catalogue par défaut pré-rempli (~230 produits) avec des moyennes de référence (CIQUAL/ANSES).
+- Sélecteur d'aliment : **kcal par portion** affichées, et calcul en direct
+  (kcal / sucre / matières grasses) **selon la quantité choisie** (par part).
+- Journée : totaux du jour (**kcal ingérées, sucre, matières grasses**).
+- Analyses : carte **Nutrition estimée (moyenne/jour)** — kcal, glucides, sucres, MG, protéines, sel.
+- Formulaire « nouveau produit » : saisie possible des valeurs nutritionnelles.
+
 ## [2.0.0] — 2026-07-26
 ### Ajouté — Tableau de bord d'analyses (onglet 📊)
 - **Aliments à surveiller** : croise vos repas et vos ressentis pour faire ressortir
