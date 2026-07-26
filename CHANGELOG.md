@@ -3,6 +3,17 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.0] — 2026-07-26
+### Ajouté
+- **Gestionnaire de produits** (Réglages → Mes produits → Gérer) : liste complète de tous
+  les produits avec leurs valeurs nutritionnelles, **recherche**, **modification** de
+  n'importe quel produit, et masquer / réafficher.
+- **Import / Export CSV** des produits (sauvegarde, édition en masse dans un tableur).
+- **Totaux nutritionnels par repas** dans la Journée (kcal, sucre, matières grasses, protéines).
+### Note
+- Pour modifier les produits du **catalogue par défaut**, exécuter une fois
+  `supabase/products-editable.sql` (autorise l'édition du catalogue partagé).
+
 ## [2.1.0] — 2026-07-26
 ### Ajouté — Valeurs nutritionnelles
 - Chaque produit porte désormais : **énergie, glucides, dont sucres, matières grasses,

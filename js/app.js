@@ -272,6 +272,13 @@ async function renderJournee() {
       html += `<p class="empty-hint">Rien pour l'instant.</p>`;
     }
 
+    // Totaux nutritionnels du repas
+    const mealNutri = emptyNutri();
+    for (const it of items) addNutri(mealNutri, itemNutrition(it));
+    if (mealNutri.kcal > 0) {
+      html += `<div class="meal-nutri">🔥 ${r0(mealNutri.kcal)} kcal · 🍬 ${r1(mealNutri.sugar)} g · 🧈 ${r1(mealNutri.fat)} g · 🥩 ${r1(mealNutri.prot)} g prot.</div>`;
+    }
+
     // Boissons rattachées au repas
     if (mealDrinks.length) {
       html += `<div class="pill-row">` + mealDrinks.map(d => {
@@ -981,8 +988,8 @@ async function renderReglages() {
     <div class="settings-card">
       <h3>🥗 Mes produits</h3>
       <div class="settings-row"><span class="muted">${totalProd} produits dans ${state.categories.length} catégories</span>
-        <button class="btn btn-soft btn-sm" id="add-product">+ Ajouter</button></div>
-      <p class="muted" style="margin-top:8px">Ajoutez vos aliments préférés pour les retrouver rapidement lors de la saisie.</p>
+        <button class="btn btn-soft btn-sm" id="manage-products">Gérer</button></div>
+      <p class="muted" style="margin-top:8px">Voir tous les produits et leurs valeurs nutritionnelles, les modifier, en ajouter, et importer / exporter (CSV).</p>
     </div>
 
     <div class="settings-card">
@@ -1006,7 +1013,7 @@ async function renderReglages() {
     <div class="version-badge" id="version-badge" style="cursor:pointer" title="Voir les nouveautés">Version ${window.APP_CONFIG?.APP_VERSION || "1.0.0"} · Mon Journal Alimentaire</div>
   `;
   el("logout-btn").onclick = logout;
-  el("add-product").onclick = openAddProductModal;
+  el("manage-products").onclick = openProductManager;
   el("show-changelog").onclick = openChangelogModal;
   el("version-badge").onclick = openChangelogModal;
 }
@@ -1050,45 +1057,231 @@ function renderMarkdownChangelog(md) {
   return html;
 }
 
-function openAddProductModal() {
-  let cat = state.categories[0]?.id;
-  const overlay = openModal(`
-    <div class="modal-head"><h2>➕ Nouveau produit</h2><button class="modal-close">✕</button></div>
-    <div class="field"><label>Catégorie</label>
-      <select id="p-cat">${state.categories.map(c => `<option value="${c.id}">${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
-    <div class="field"><label>Nom du produit</label><input type="text" id="p-name" placeholder="Ex : Houmous"></div>
-    <div class="field"><label>Emoji (optionnel)</label><input type="text" id="p-emoji" placeholder="🥙" maxlength="4"></div>
+// Rétro-compat : ancien point d'entrée
+function openAddProductModal() { openProductForm(null); }
 
+/* ---------- Formulaire produit (ajout OU modification) ---------- */
+function openProductForm(existing = null) {
+  const isEdit = !!existing;
+  const val = (k) => { const v = existing?.[k]; return v == null ? "" : v; };
+  const overlay = openModal(`
+    <div class="modal-head"><h2>${isEdit ? "✏️ Modifier le produit" : "➕ Nouveau produit"}</h2><button class="modal-close">✕</button></div>
+    <div class="field"><label>Catégorie</label>
+      <select id="p-cat">${state.categories.map(c => `<option value="${c.id}" ${c.id === existing?.category_id ? "selected" : ""}>${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
+    <div class="field"><label>Nom du produit</label><input type="text" id="p-name" value="${esc(val("name"))}" placeholder="Ex : Houmous"></div>
+    <div class="field"><label>Emoji (optionnel)</label><input type="text" id="p-emoji" value="${esc(val("emoji"))}" placeholder="🥙" maxlength="4"></div>
     <div class="nutri-form">
-      <div class="nutri-form-title">Valeurs nutritionnelles <span>(optionnel — pour 100 g)</span></div>
+      <div class="nutri-form-title">Valeurs nutritionnelles <span>(pour 100 g)</span></div>
       <div class="nutri-grid">
-        <label>Énergie (kcal)<input type="number" id="n-kcal" min="0" step="1"></label>
-        <label>Glucides (g)<input type="number" id="n-carb" min="0" step="0.1"></label>
-        <label>dont sucres (g)<input type="number" id="n-sugar" min="0" step="0.1"></label>
-        <label>Mat. grasses (g)<input type="number" id="n-fat" min="0" step="0.1"></label>
-        <label>Protéines (g)<input type="number" id="n-prot" min="0" step="0.1"></label>
-        <label>Sel (g)<input type="number" id="n-salt" min="0" step="0.01"></label>
-        <label>Portion (g)<input type="number" id="n-portion" min="0" step="1" placeholder="ex : 100"></label>
+        <label>Énergie (kcal)<input type="number" id="n-kcal" min="0" step="1" value="${val("energy_kcal")}"></label>
+        <label>Glucides (g)<input type="number" id="n-carb" min="0" step="0.1" value="${val("carb_g")}"></label>
+        <label>dont sucres (g)<input type="number" id="n-sugar" min="0" step="0.1" value="${val("sugar_g")}"></label>
+        <label>Mat. grasses (g)<input type="number" id="n-fat" min="0" step="0.1" value="${val("fat_g")}"></label>
+        <label>Protéines (g)<input type="number" id="n-prot" min="0" step="0.1" value="${val("protein_g")}"></label>
+        <label>Sel (g)<input type="number" id="n-salt" min="0" step="0.01" value="${val("salt_g")}"></label>
+        <label>Portion (g)<input type="number" id="n-portion" min="0" step="1" value="${val("portion_g")}" placeholder="ex : 100"></label>
       </div>
     </div>
-    <button class="btn btn-primary btn-block" id="save-product">Ajouter à mon catalogue</button>
+    <button class="btn btn-primary btn-block" id="save-product">${isEdit ? "Enregistrer" : "Ajouter à mon catalogue"}</button>
   `);
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
   overlay.querySelector("#save-product").onclick = async () => {
     const name = overlay.querySelector("#p-name").value.trim();
-    cat = overlay.querySelector("#p-cat").value;
     if (!name) return toast("Indiquez un nom", "err");
     const num = id => { const v = overlay.querySelector(id).value; return v === "" ? null : Number(v); };
-    const { error } = await supabase.from("products").insert({
-      category_id: cat, name, emoji: overlay.querySelector("#p-emoji").value.trim() || null,
-      user_id: state.user.id,
+    const payload = {
+      category_id: overlay.querySelector("#p-cat").value, name,
+      emoji: overlay.querySelector("#p-emoji").value.trim() || null,
       energy_kcal: num("#n-kcal"), carb_g: num("#n-carb"), sugar_g: num("#n-sugar"),
       fat_g: num("#n-fat"), protein_g: num("#n-prot"), salt_g: num("#n-salt"), portion_g: num("#n-portion"),
-    });
-    if (error) return toast("Erreur : " + error.message, "err");
-    closeModal(overlay); toast("Produit ajouté", "ok");
-    await loadCatalog(); renderReglages();
+    };
+    try {
+      if (isEdit) {
+        const { data, error } = await supabase.from("products").update(payload).eq("id", existing.id).select();
+        if (error) throw error;
+        if (!data || !data.length) return toast("Modification non enregistrée : exécutez products-editable.sql", "err");
+      } else {
+        const { error } = await supabase.from("products").insert({ ...payload, user_id: state.user.id });
+        if (error) throw error;
+      }
+      closeModal(overlay);
+      toast(isEdit ? "Produit modifié" : "Produit ajouté", "ok");
+      await loadCatalog();
+      if (productManagerRefresh) productManagerRefresh();
+      if (state.tab === "reglages") renderReglages();
+    } catch (e) { toast("Erreur : " + e.message, "err"); }
   };
+}
+
+/* ---------- Gestionnaire de produits (liste + recherche + import/export) ---------- */
+let productManagerRefresh = null;
+async function openProductManager() {
+  const overlay = openModal(`
+    <div class="modal-head"><h2>🥗 Mes produits</h2><button class="modal-close">✕</button></div>
+    <div class="pm-actions">
+      <button class="btn btn-soft btn-sm" id="pm-add">➕ Nouveau</button>
+      <button class="btn btn-ghost btn-sm" id="pm-export">⬇️ Exporter</button>
+      <button class="btn btn-ghost btn-sm" id="pm-import">⬆️ Importer</button>
+      <input type="file" id="pm-file" accept=".csv,text/csv" hidden>
+    </div>
+    <input type="text" id="pm-search" class="pm-search" placeholder="🔍 Rechercher un produit…">
+    <div id="pm-list" class="pm-list"><p class="empty-hint">Chargement…</p></div>
+  `);
+  const search = overlay.querySelector("#pm-search");
+  const listEl = overlay.querySelector("#pm-list");
+  let all = [];
+
+  async function load() {
+    if (!document.body.contains(listEl)) return;
+    const { data } = await supabase.from("products").select("*, categories(name,emoji)").order("name");
+    all = data || [];
+    render();
+  }
+  productManagerRefresh = load;
+
+  function render() {
+    const q = search.value.trim().toLowerCase();
+    const rows = all.filter(p => !q || p.name.toLowerCase().includes(q));
+    if (!rows.length) { listEl.innerHTML = `<p class="empty-hint">Aucun produit trouvé.</p>`; return; }
+    const byCat = {};
+    for (const p of rows) { const cn = p.categories?.name || "Autres"; (byCat[cn] ??= []).push(p); }
+    listEl.innerHTML = Object.keys(byCat).sort().map(cn =>
+      `<div class="pm-cat">${esc(cn)} <span>${byCat[cn].length}</span></div>` +
+      byCat[cn].map(pmRow).join("")).join("");
+    listEl.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openProductForm(all.find(x => x.id === b.dataset.edit)));
+    listEl.querySelectorAll("[data-arch]").forEach(b => b.onclick = () => toggleArchive(b.dataset.arch));
+  }
+
+  function pmRow(p) {
+    const off = p.is_active === false;
+    const sub = p.energy_kcal != null
+      ? `${r0(p.energy_kcal)} kcal · 🍬 ${r1(p.sugar_g || 0)}g · 🧈 ${r1(p.fat_g || 0)}g · 🥩 ${r1(p.protein_g || 0)}g /100g${p.portion_g ? ` · portion ${r0(p.portion_g)}g` : ""}`
+      : `pas de valeurs nutritionnelles`;
+    return `<div class="pm-row ${off ? "pm-off" : ""}">
+      <span class="pm-emoji">${p.emoji || "🍴"}</span>
+      <div class="pm-body">
+        <div class="pm-name">${esc(p.name)}${p.user_id ? ' <span class="pm-tag">perso</span>' : ""}${off ? ' <span class="pm-tag off">masqué</span>' : ""}</div>
+        <div class="pm-sub">${sub}</div>
+      </div>
+      <button class="pm-icon" data-edit="${p.id}" title="Modifier">✏️</button>
+      <button class="pm-icon" data-arch="${p.id}" title="${off ? "Réafficher" : "Masquer"}">${off ? "↩️" : "🗑️"}</button>
+    </div>`;
+  }
+
+  async function toggleArchive(id) {
+    const p = all.find(x => x.id === id);
+    const target = (p.is_active === false); // masqué -> réactiver ; sinon masquer
+    const { data, error } = await supabase.from("products").update({ is_active: target }).eq("id", id).select();
+    if (error) return toast("Erreur : " + error.message, "err");
+    if (!data || !data.length) return toast("Action refusée : exécutez products-editable.sql", "err");
+    toast(target ? "Produit réaffiché" : "Produit masqué");
+    await loadCatalog(); load();
+  }
+
+  overlay.querySelector("#pm-add").onclick = () => openProductForm(null);
+  overlay.querySelector("#pm-export").onclick = () => exportProductsCSV(all);
+  const fileInput = overlay.querySelector("#pm-file");
+  overlay.querySelector("#pm-import").onclick = () => fileInput.click();
+  fileInput.onchange = async () => { if (fileInput.files[0]) { await importProductsCSV(fileInput.files[0], all); fileInput.value = ""; } };
+  search.oninput = render;
+  overlay.querySelector(".modal-close").onclick = () => { productManagerRefresh = null; closeModal(overlay); };
+
+  load();
+}
+
+/* ---------- Export CSV ---------- */
+function exportProductsCSV(all) {
+  const cell = v => { v = v == null ? "" : String(v); return /[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
+  const header = ["categorie", "nom", "emoji", "energie_kcal_100g", "glucides_100g", "sucres_100g", "matieres_grasses_100g", "proteines_100g", "sel_100g", "portion_g"];
+  const lines = [header.join(",")];
+  for (const p of all) lines.push([
+    p.categories?.name || "", p.name, p.emoji || "",
+    p.energy_kcal, p.carb_g, p.sugar_g, p.fat_g, p.protein_g, p.salt_g, p.portion_g
+  ].map(cell).join(","));
+  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `produits-journal-${todayISO()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`${all.length} produits exportés`, "ok");
+}
+
+/* ---------- Import CSV ---------- */
+function parseCSV(text) {
+  const rows = []; let field = "", row = [], inQ = false, i = 0;
+  text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const pushF = () => { row.push(field); field = ""; };
+  const pushR = () => { rows.push(row); row = []; };
+  while (i < text.length) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQ = true; i++; continue; }
+    if (c === "," || c === ";") { pushF(); i++; continue; }
+    if (c === "\n") { pushF(); pushR(); i++; continue; }
+    field += c; i++;
+  }
+  if (field.length || row.length) { pushF(); pushR(); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+
+async function importProductsCSV(file, existingList) {
+  try {
+    const rows = parseCSV(await file.text());
+    if (rows.length < 2) return toast("Fichier vide ou invalide", "err");
+    const head = rows[0].map(h => h.trim().toLowerCase());
+    const col = (...names) => head.findIndex(h => names.includes(h));
+    const iName = col("nom", "name", "produit");
+    if (iName < 0) return toast("Colonne « nom » introuvable dans le CSV", "err");
+    const iCat = col("categorie", "catégorie", "category");
+    const iEmoji = col("emoji");
+    const iKcal = col("energie_kcal_100g", "energie", "kcal", "energy_kcal");
+    const iCarb = col("glucides_100g", "glucides", "carb_g");
+    const iSugar = col("sucres_100g", "sucres", "sugar_g");
+    const iFat = col("matieres_grasses_100g", "matieres_grasses", "fat_g");
+    const iProt = col("proteines_100g", "proteines", "protein_g");
+    const iSalt = col("sel_100g", "sel", "salt_g");
+    const iPortion = col("portion_g", "portion");
+    const numAt = (r, idx) => { if (idx < 0) return null; const v = (r[idx] || "").trim().replace(",", "."); return v === "" ? null : (isNaN(Number(v)) ? null : Number(v)); };
+    const catByName = new Map(state.categories.map(c => [c.name.toLowerCase(), c.id]));
+    const keyOf = (name, catId) => `${(name || "").toLowerCase()}|${catId || ""}`;
+    const existingByKey = new Map(existingList.map(p => [keyOf(p.name, p.category_id), p]));
+
+    const toInsert = [], toUpdate = [];
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      const name = (row[iName] || "").trim();
+      if (!name) continue;
+      const catId = iCat >= 0 ? (catByName.get((row[iCat] || "").trim().toLowerCase()) || null) : null;
+      const payload = {
+        name, category_id: catId, emoji: iEmoji >= 0 ? ((row[iEmoji] || "").trim() || null) : null,
+        energy_kcal: numAt(row, iKcal), carb_g: numAt(row, iCarb), sugar_g: numAt(row, iSugar),
+        fat_g: numAt(row, iFat), protein_g: numAt(row, iProt), salt_g: numAt(row, iSalt), portion_g: numAt(row, iPortion),
+      };
+      const match = existingByKey.get(keyOf(name, catId));
+      if (match) toUpdate.push({ id: match.id, payload });
+      else toInsert.push({ ...payload, user_id: state.user.id });
+    }
+    if (!toInsert.length && !toUpdate.length) return toast("Aucune ligne exploitable", "err");
+    if (!confirm(`Importer ce fichier ?\n• ${toInsert.length} produit(s) ajouté(s)\n• ${toUpdate.length} produit(s) mis à jour`)) return;
+
+    let ok = 0, fail = 0;
+    if (toInsert.length) {
+      const { error } = await supabase.from("products").insert(toInsert);
+      if (error) fail += toInsert.length; else ok += toInsert.length;
+    }
+    for (const u of toUpdate) {
+      const { data, error } = await supabase.from("products").update(u.payload).eq("id", u.id).select("id");
+      if (error || !data || !data.length) fail++; else ok++;
+    }
+    await loadCatalog();
+    if (productManagerRefresh) productManagerRefresh();
+    toast(`Import terminé : ${ok} OK${fail ? `, ${fail} échec(s)` : ""}`, fail ? "err" : "ok");
+  } catch (e) { toast("Import impossible : " + e.message, "err"); }
 }
 
 /* ============================================================
