@@ -327,50 +327,88 @@ async function ensureMeal(mealTypeKey) {
    ============================================================ */
 function openAddItemModal(mealTypeKey) {
   const meta = mealMeta(mealTypeKey);
-  const firstCat = state.categories[0]?.id;
-  let selectedProduct = null, selectedQty = "moyenne", activeCat = firstCat;
+  let activeCat = state.categories[0]?.id;
+  // Sélection multiple : clé -> { product_id, name, emoji, quantity_kind, quantity_number }
+  const selected = new Map();
+  let customSeq = 0;
 
   const overlay = openModal(`
-    <div class="modal-head"><h2>${meta.emoji} ${meta.label} · aliment</h2>
+    <div class="modal-head"><h2>${meta.emoji} ${meta.label} · aliments</h2>
       <button class="modal-close">✕</button></div>
-    <div class="field"><label>Choisir dans le catalogue</label>
-      <div class="cat-tabs" id="cat-tabs"></div>
-      <div class="product-grid" id="product-grid"></div>
+    <p class="pick-hint">Touchez les aliments pour en choisir <b>plusieurs</b> (même dans différentes catégories).</p>
+    <div class="cat-tabs" id="cat-tabs"></div>
+    <div class="product-grid" id="product-grid"></div>
+    <div class="field" style="margin-top:8px"><label>… ou ajouter un aliment libre</label>
+      <div class="custom-row">
+        <input type="text" id="custom-name" placeholder="Ex : Tarte aux pommes maison" />
+        <button class="btn btn-soft" id="add-custom" type="button">+ Ajouter</button>
+      </div>
     </div>
-    <div class="field"><label>… ou saisir librement</label>
-      <input type="text" id="custom-name" placeholder="Ex : Tarte aux pommes maison" />
-    </div>
-    <div class="field"><label>Quantité</label>
-      <div class="qty-grid" id="qty-grid"></div>
-      <input type="number" id="qty-number" placeholder="Nombre (ex : 2)" step="0.5" min="0" style="margin-top:8px;display:none" />
-    </div>
-    <button class="btn btn-primary btn-block" id="save-item">Ajouter</button>
+    <div id="tray" class="tray"></div>
+    <button class="btn btn-primary btn-block" id="save-item" disabled>Ajouter</button>
   `);
 
   const catTabs = overlay.querySelector("#cat-tabs");
   const grid = overlay.querySelector("#product-grid");
-  const qtyGrid = overlay.querySelector("#qty-grid");
-  const qtyNumber = overlay.querySelector("#qty-number");
+  const tray = overlay.querySelector("#tray");
   const customInput = overlay.querySelector("#custom-name");
+  const saveBtn = overlay.querySelector("#save-item");
 
   catTabs.innerHTML = state.categories.map(c =>
     `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
-  qtyGrid.innerHTML = QTY_KINDS.map(q =>
-    `<button class="qty-opt ${q.key === "moyenne" ? "selected" : ""}" data-qty="${q.key}">${q.label}</button>`).join("");
 
   function renderProducts() {
     const list = state.productsByCat[activeCat] || [];
     grid.innerHTML = list.length ? list.map(p =>
-      `<button class="product-btn ${selectedProduct === p.id ? "selected" : ""}" data-prod="${p.id}" data-name="${esc(p.name)}">
-        <span class="pe">${p.emoji || "🍴"}</span>${esc(p.name)}</button>`).join("")
+      `<button class="product-btn ${selected.has(p.id) ? "selected" : ""}" data-prod="${p.id}" data-emoji="${p.emoji || "🍴"}" data-name="${esc(p.name)}">
+        <span class="pe">${p.emoji || "🍴"}</span>${esc(p.name)}
+        ${selected.has(p.id) ? '<span class="pick-check">✓</span>' : ""}</button>`).join("")
       : `<p class="empty-hint">Aucun produit. Ajoutez-en dans Réglages.</p>`;
     grid.querySelectorAll("[data-prod]").forEach(b => b.onclick = () => {
-      selectedProduct = b.dataset.prod; customInput.value = "";
-      grid.querySelectorAll(".product-btn").forEach(x => x.classList.remove("selected"));
-      b.classList.add("selected");
+      const id = b.dataset.prod;
+      if (selected.has(id)) selected.delete(id);
+      else selected.set(id, { product_id: id, name: b.dataset.name, emoji: b.dataset.emoji, quantity_kind: "moyenne", quantity_number: null });
+      renderProducts();
+      renderTray();
     });
   }
+
+  function renderTray() {
+    const entries = [...selected.entries()];
+    saveBtn.disabled = entries.length === 0;
+    saveBtn.textContent = entries.length
+      ? `Ajouter ${entries.length} aliment${entries.length > 1 ? "s" : ""}`
+      : "Ajouter";
+    if (!entries.length) { tray.innerHTML = ""; return; }
+    tray.innerHTML = `<div class="tray-count">Sélection (${entries.length}) — précisez la quantité :</div>` +
+      entries.map(([key, it]) => `
+        <div class="tray-item" data-key="${key}">
+          <span class="tname">${it.emoji} ${esc(it.name)}</span>
+          <select class="tray-kind">
+            ${QTY_KINDS.map(q => `<option value="${q.key}" ${q.key === it.quantity_kind ? "selected" : ""}>${q.label}</option>`).join("")}
+          </select>
+          <input type="number" class="tray-num" placeholder="Nb" step="0.5" min="0"
+            value="${it.quantity_number ?? ""}" style="${it.quantity_kind === "nombre" ? "" : "display:none"}">
+          <button class="rm" title="Retirer">✕</button>
+        </div>`).join("");
+    tray.querySelectorAll(".tray-item").forEach(row => {
+      const key = row.dataset.key;
+      const it = selected.get(key);
+      row.querySelector(".tray-kind").onchange = (e) => {
+        it.quantity_kind = e.target.value;
+        row.querySelector(".tray-num").style.display = e.target.value === "nombre" ? "" : "none";
+      };
+      row.querySelector(".tray-num").oninput = (e) => { it.quantity_number = e.target.value ? Number(e.target.value) : null; };
+      row.querySelector(".rm").onclick = () => {
+        selected.delete(key);
+        renderProducts();
+        renderTray();
+      };
+    });
+  }
+
   renderProducts();
+  renderTray();
 
   catTabs.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => {
     activeCat = b.dataset.cat;
@@ -378,36 +416,37 @@ function openAddItemModal(mealTypeKey) {
     b.classList.add("active");
     renderProducts();
   });
-  qtyGrid.querySelectorAll("[data-qty]").forEach(b => b.onclick = () => {
-    selectedQty = b.dataset.qty;
-    qtyGrid.querySelectorAll(".qty-opt").forEach(x => x.classList.remove("selected"));
-    b.classList.add("selected");
-    qtyNumber.style.display = selectedQty === "nombre" ? "block" : "none";
-  });
-  customInput.oninput = () => {
-    if (customInput.value.trim()) {
-      selectedProduct = null;
-      grid.querySelectorAll(".product-btn").forEach(x => x.classList.remove("selected"));
-    }
-  };
+
+  function addCustom() {
+    const v = customInput.value.trim();
+    if (!v) return;
+    selected.set("custom:" + (++customSeq), { product_id: null, name: v, emoji: "🍴", quantity_kind: "moyenne", quantity_number: null });
+    customInput.value = "";
+    renderTray();
+  }
+  overlay.querySelector("#add-custom").onclick = addCustom;
+  customInput.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } };
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
 
-  overlay.querySelector("#save-item").onclick = async () => {
-    const custom = customInput.value.trim();
-    if (!selectedProduct && !custom) return toast("Choisissez un aliment", "err");
+  saveBtn.onclick = async () => {
+    const entries = [...selected.values()];
+    if (!entries.length) return;
+    saveBtn.disabled = true;
     try {
       const mealId = await ensureMeal(mealTypeKey);
-      const row = {
+      const rows = entries.map(it => ({
         meal_id: mealId,
-        product_id: selectedProduct,
-        custom_name: selectedProduct ? null : custom,
-        quantity_kind: selectedQty,
-        quantity_number: selectedQty === "nombre" ? Number(qtyNumber.value || 1) : null,
-      };
-      const { error } = await supabase.from("meal_items").insert(row);
+        product_id: it.product_id,
+        custom_name: it.product_id ? null : it.name,
+        quantity_kind: it.quantity_kind,
+        quantity_number: it.quantity_kind === "nombre" ? (it.quantity_number || 1) : null,
+      }));
+      const { error } = await supabase.from("meal_items").insert(rows);
       if (error) throw error;
-      closeModal(overlay); toast("Aliment ajouté", "ok"); renderJournee();
-    } catch (e) { toast("Erreur : " + e.message, "err"); }
+      closeModal(overlay);
+      toast(`${rows.length} aliment${rows.length > 1 ? "s" : ""} ajouté${rows.length > 1 ? "s" : ""}`, "ok");
+      renderJournee();
+    } catch (e) { toast("Erreur : " + e.message, "err"); saveBtn.disabled = false; }
   };
 }
 
