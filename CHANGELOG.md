@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [1.1.0] — 2026-07-26
+### Ajouté
+- **Sélection multiple d'aliments** : on peut cocher plusieurs produits (même dans
+  différentes catégories) et les ajouter d'un seul coup à un repas.
+- Quantité réglable **par aliment** dans le panier de sélection (nombre / petite / moyenne / grande).
+### Enrichi
+- +139 produits préchargés dans le catalogue (≈ 230 aliments au total).
+
 ## [1.0.0] — 2026-07-26
 ### Ajouté (première version — MVP)
 - Authentification sécurisée par email + mot de passe (Supabase Auth).
