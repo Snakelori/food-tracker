@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.1] — 2026-07-26
+### Enrichi
+- Nouvelles catégories **🍕 Pizzas** (17 classiques de restaurant) et **🍣 Restaurant japonais**
+  (29 plats : sushis, makis, sashimis, ramen, gyoza, tempura, yakitori…), avec valeurs
+  nutritionnelles. À charger via `supabase/produits-restaurant.sql`.
+
 ## [2.2.0] — 2026-07-26
 ### Ajouté
 - **Gestionnaire de produits** (Réglages → Mes produits → Gérer) : liste complète de tous
