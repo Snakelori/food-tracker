@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [1.2.0] — 2026-07-26
+### Ajouté
+- **Journal des versions consultable dans l'app** : Réglages → « Voir le journal »
+  (ou clic sur le numéro de version). Il est lu directement depuis ce fichier.
+
 ## [1.1.0] — 2026-07-26
 ### Ajouté
 - **Sélection multiple d'aliments** : on peut cocher plusieurs produits (même dans

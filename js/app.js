@@ -701,15 +701,62 @@ async function renderReglages() {
     </div>
 
     <div class="settings-card">
+      <h3>📝 Nouveautés & versions</h3>
+      <div class="settings-row"><span class="muted">Historique des évolutions de l'app</span>
+        <button class="btn btn-soft btn-sm" id="show-changelog">Voir le journal</button></div>
+    </div>
+
+    <div class="settings-card">
       <h3>📱 Installer l'application</h3>
       <p class="muted">Sur iPhone : bouton Partager → « Sur l'écran d'accueil ».<br>
       Sur ordinateur : icône d'installation dans la barre d'adresse.</p>
     </div>
 
-    <div class="version-badge">Version ${window.APP_CONFIG?.APP_VERSION || "1.0.0"} · Mon Journal Alimentaire</div>
+    <div class="version-badge" id="version-badge" style="cursor:pointer" title="Voir les nouveautés">Version ${window.APP_CONFIG?.APP_VERSION || "1.0.0"} · Mon Journal Alimentaire</div>
   `;
   el("logout-btn").onclick = logout;
   el("add-product").onclick = openAddProductModal;
+  el("show-changelog").onclick = openChangelogModal;
+  el("version-badge").onclick = openChangelogModal;
+}
+
+/* ============================================================
+   MODALE : JOURNAL DES VERSIONS (lu depuis CHANGELOG.md)
+   ============================================================ */
+async function openChangelogModal() {
+  const overlay = openModal(`
+    <div class="modal-head"><h2>📝 Nouveautés</h2><button class="modal-close">✕</button></div>
+    <div id="changelog-body" class="changelog"><p class="empty-hint">Chargement…</p></div>
+  `);
+  overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
+  try {
+    const res = await fetch("CHANGELOG.md?t=" + Date.now());
+    if (!res.ok) throw new Error("indisponible");
+    overlay.querySelector("#changelog-body").innerHTML = renderMarkdownChangelog(await res.text());
+  } catch (e) {
+    overlay.querySelector("#changelog-body").innerHTML =
+      `<p class="empty-hint">Journal des versions indisponible pour le moment.</p>`;
+  }
+}
+
+// Rendu minimal du sous-ensemble Markdown utilisé dans CHANGELOG.md
+function renderMarkdownChangelog(md) {
+  const inline = (s) => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  let html = "", inList = false;
+  const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
+  for (const raw of md.split("\n")) {
+    const line = raw.trim();
+    if (!line) { closeList(); continue; }
+    if (line.startsWith("# ")) { closeList(); continue; }           // titre principal ignoré
+    if (line.startsWith("## ")) { closeList(); html += `<h3 class="cl-version">${inline(line.slice(3))}</h3>`; continue; }
+    if (line.startsWith("### ")) { closeList(); html += `<h4 class="cl-sub">${inline(line.slice(4))}</h4>`; continue; }
+    if (line.startsWith("- ")) { if (!inList) { html += `<ul class="cl-list">`; inList = true; } html += `<li>${inline(line.slice(2))}</li>`; continue; }
+    closeList(); html += `<p class="cl-p">${inline(line)}</p>`;
+  }
+  closeList();
+  return html;
 }
 
 function openAddProductModal() {
