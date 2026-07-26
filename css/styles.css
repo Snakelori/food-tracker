@@ -321,6 +321,29 @@ body {
 
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* Notes & idées */
+.note-composer { background: #fafcfb; border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 16px; }
+.note-composer textarea {
+  width: 100%; min-height: 70px; resize: vertical; font-family: inherit; font-size: 15px;
+  padding: 11px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff;
+}
+.note-composer textarea:focus { outline: none; border-color: var(--green); }
+.note-rec-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+.note-rec-status { font-size: 13px; font-weight: 700; color: var(--danger); }
+#note-rec.recording { background: var(--peach-soft); color: var(--danger); }
+#note-rec.recording::before { content: ""; }
+.note-audio-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.note-audio-preview audio, .note-audio { width: 100%; max-width: 100%; margin-top: 6px; }
+.notes-list { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; }
+.note-item { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px 13px; box-shadow: var(--shadow-sm); }
+.note-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.note-date { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; }
+.note-actions { display: flex; gap: 6px; }
+.note-content { font-size: 14.5px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+
+/* Champ heure dans l'ajout d'aliment */
+.time-field { max-width: 180px; }
+
 /* Gestionnaire de produits */
 .pm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .pm-search {

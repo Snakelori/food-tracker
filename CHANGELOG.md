@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.0] — 2026-07-26
+### Ajouté
+- **Heure de prise** indiquable au moment d'ajouter des aliments (utile notamment pour les encas).
+- **Mode Notes & idées** (Réglages → Notes) : prise de notes libres sur l'application,
+  en **texte** et/ou en **audio** (enregistrement micro), avec **modification** et **suppression**.
+  Audio stocké de façon privée (Supabase Storage). À activer via `supabase/notes.sql`.
+
 ## [2.2.7] — 2026-07-26
 ### Enrichi
 - Nouvelle catégorie **🧀 Fromages** : 41 fromages connus (camembert, comté, roquefort,

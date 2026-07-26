@@ -365,16 +365,25 @@ async function ensureMeal(mealTypeKey) {
 /* ============================================================
    MODALE : AJOUTER UN ALIMENT
    ============================================================ */
-function openAddItemModal(mealTypeKey) {
+async function openAddItemModal(mealTypeKey) {
   const meta = mealMeta(mealTypeKey);
   let activeCat = state.categories[0]?.id;
   // Sélection multiple : clé -> { product_id, name, emoji, quantity_kind, quantity_number }
   const selected = new Map();
   let customSeq = 0;
 
+  // Heure : reprend l'heure du repas s'il existe, sinon défaut (heure actuelle pour un encas)
+  const { data: existingMeal } = await supabase.from("meals")
+    .select("meal_time").eq("meal_date", state.date).eq("meal_type", mealTypeKey).maybeSingle();
+  const defaultTime = existingMeal?.meal_time
+    ? existingMeal.meal_time.slice(0, 5)
+    : (mealTypeKey === "encas" ? new Date().toTimeString().slice(0, 5) : meta.time);
+
   const overlay = openModal(`
     <div class="modal-head"><h2>${meta.emoji} ${meta.label} · aliments</h2>
       <button class="modal-close">✕</button></div>
+    <div class="field time-field"><label>🕐 Heure de prise</label>
+      <input type="time" id="item-time" value="${defaultTime}"></div>
     <p class="pick-hint">Touchez les aliments pour en choisir <b>plusieurs</b> (même dans différentes catégories).</p>
     <div class="cat-tabs" id="cat-tabs"></div>
     <div class="product-grid" id="product-grid"></div>
@@ -493,6 +502,9 @@ function openAddItemModal(mealTypeKey) {
     saveBtn.disabled = true;
     try {
       const mealId = await ensureMeal(mealTypeKey);
+      // Enregistre l'heure de prise indiquée
+      const t = overlay.querySelector("#item-time").value;
+      if (t) await supabase.from("meals").update({ meal_time: t }).eq("id", mealId);
       const rows = entries.map(it => ({
         meal_id: mealId,
         product_id: it.product_id,
@@ -993,6 +1005,12 @@ async function renderReglages() {
     </div>
 
     <div class="settings-card">
+      <h3>📝 Notes & idées</h3>
+      <div class="settings-row"><span class="muted">Notes libres et idées d'amélioration (texte ou audio)</span>
+        <button class="btn btn-soft btn-sm" id="open-notes">Ouvrir</button></div>
+    </div>
+
+    <div class="settings-card">
       <h3>📊 Analyses</h3>
       <p class="muted">Retrouvez dans l'onglet <b>📊 Analyses</b> les aliments à surveiller,
       ceux qui vous réussissent, l'évolution de votre ressenti et vos statistiques.</p>
@@ -1015,8 +1033,146 @@ async function renderReglages() {
   `;
   el("logout-btn").onclick = logout;
   el("manage-products").onclick = openProductManager;
+  el("open-notes").onclick = openNotesManager;
   el("show-changelog").onclick = openChangelogModal;
   el("version-badge").onclick = openChangelogModal;
+}
+
+/* ============================================================
+   MODALE : NOTES (texte + audio, modifiables / supprimables)
+   ============================================================ */
+function mimeToExt(mime = "") {
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) return "m4a";
+  if (mime.includes("ogg")) return "ogg";
+  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
+  if (mime.includes("wav")) return "wav";
+  return "bin";
+}
+
+async function openNotesManager() {
+  const overlay = openModal(`
+    <div class="modal-head"><h2>📝 Notes & idées</h2><button class="modal-close">✕</button></div>
+    <p class="pick-hint">Vos idées d'amélioration de l'application (texte et/ou audio).</p>
+    <div class="note-composer">
+      <textarea id="note-text" placeholder="Écrire une note…"></textarea>
+      <div class="note-rec-row">
+        <button class="btn btn-soft btn-sm" id="note-rec">🎤 Enregistrer un audio</button>
+        <span id="note-rec-status" class="note-rec-status"></span>
+      </div>
+      <div id="note-audio-preview"></div>
+      <button class="btn btn-primary btn-block" id="note-add">Ajouter la note</button>
+    </div>
+    <div id="notes-list" class="notes-list"><p class="empty-hint">Chargement…</p></div>
+  `);
+  const textEl = overlay.querySelector("#note-text");
+  const recBtn = overlay.querySelector("#note-rec");
+  const recStatus = overlay.querySelector("#note-rec-status");
+  const audioPreview = overlay.querySelector("#note-audio-preview");
+  const listEl = overlay.querySelector("#notes-list");
+  const addBtn = overlay.querySelector("#note-add");
+
+  let mediaRecorder = null, chunks = [], recordedBlob = null, recTimer = null, recSeconds = 0;
+  const stopStream = () => { if (mediaRecorder?.stream) mediaRecorder.stream.getTracks().forEach(t => t.stop()); };
+  const resetComposerAudio = () => { recordedBlob = null; audioPreview.innerHTML = ""; recStatus.textContent = ""; };
+
+  async function toggleRec() {
+    if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined")
+      return toast("Enregistrement audio non disponible sur cet appareil", "err");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        stopStream(); clearInterval(recTimer);
+        recBtn.textContent = "🎤 Enregistrer un audio"; recBtn.classList.remove("recording");
+        recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const url = URL.createObjectURL(recordedBlob);
+        audioPreview.innerHTML = `<div class="note-audio-preview"><audio controls src="${url}"></audio><button class="btn btn-danger btn-sm" id="note-audio-del">Retirer l'audio</button></div>`;
+        audioPreview.querySelector("#note-audio-del").onclick = resetComposerAudio;
+      };
+      mediaRecorder.start();
+      recSeconds = 0; recBtn.textContent = "⏹ Arrêter"; recBtn.classList.add("recording");
+      recStatus.textContent = "● 0:00";
+      recTimer = setInterval(() => { recSeconds++; recStatus.textContent = `● ${Math.floor(recSeconds/60)}:${String(recSeconds%60).padStart(2,"0")}`; }, 1000);
+    } catch (e) { toast("Autorisez le micro pour enregistrer", "err"); }
+  }
+  recBtn.onclick = toggleRec;
+
+  async function load() {
+    if (!document.body.contains(listEl)) return;
+    const { data } = await supabase.from("notes").select("*").order("created_at", { ascending: false });
+    await renderList(data || []);
+  }
+
+  async function renderList(notes) {
+    if (!notes.length) { listEl.innerHTML = `<p class="empty-hint">Aucune note pour l'instant.</p>`; return; }
+    const parts = [];
+    for (const n of notes) {
+      let audioHtml = "";
+      if (n.audio_path) {
+        const { data: signed } = await supabase.storage.from("notes-audio").createSignedUrl(n.audio_path, 3600);
+        if (signed?.signedUrl) audioHtml = `<audio class="note-audio" controls src="${signed.signedUrl}"></audio>`;
+      }
+      const date = new Date(n.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      const edited = n.updated_at && n.updated_at !== n.created_at ? " · modifiée" : "";
+      parts.push(`<div class="note-item">
+        <div class="note-head"><span class="note-date">🕐 ${date}${edited}</span>
+          <span class="note-actions">
+            <button class="pm-icon" data-edit="${n.id}" title="Modifier">✏️</button>
+            <button class="pm-icon" data-del="${n.id}" title="Supprimer">🗑️</button>
+          </span></div>
+        ${n.content ? `<div class="note-content">${esc(n.content).replace(/\n/g, "<br>")}</div>` : ""}
+        ${audioHtml}
+      </div>`);
+    }
+    listEl.innerHTML = parts.join("");
+    listEl.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editNote(notes.find(x => x.id === b.dataset.edit)));
+    listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => delNote(notes.find(x => x.id === b.dataset.del)));
+  }
+
+  async function editNote(note) {
+    const next = prompt("Modifier la note :", note.content || "");
+    if (next == null) return;
+    const { error } = await supabase.from("notes").update({ content: next.trim() || null, updated_at: new Date().toISOString() }).eq("id", note.id);
+    if (error) return toast("Erreur : " + error.message, "err");
+    toast("Note modifiée", "ok"); load();
+  }
+
+  async function delNote(note) {
+    if (!confirm("Supprimer cette note ?")) return;
+    if (note.audio_path) await supabase.storage.from("notes-audio").remove([note.audio_path]);
+    const { error } = await supabase.from("notes").delete().eq("id", note.id);
+    if (error) return toast("Erreur : " + error.message, "err");
+    toast("Note supprimée"); load();
+  }
+
+  addBtn.onclick = async () => {
+    const content = textEl.value.trim();
+    if (!content && !recordedBlob) return toast("Note vide", "err");
+    addBtn.disabled = true;
+    try {
+      const { data: note, error } = await supabase.from("notes").insert({ content: content || null }).select().single();
+      if (error) throw error;
+      if (recordedBlob) {
+        const path = `${state.user.id}/${note.id}.${mimeToExt(recordedBlob.type)}`;
+        const { error: upErr } = await supabase.storage.from("notes-audio").upload(path, recordedBlob, { contentType: recordedBlob.type, upsert: true });
+        if (upErr) throw upErr;
+        await supabase.from("notes").update({ audio_path: path, audio_mime: recordedBlob.type }).eq("id", note.id);
+      }
+      textEl.value = ""; resetComposerAudio();
+      toast("Note ajoutée", "ok"); load();
+    } catch (e) { toast("Erreur : " + e.message, "err"); }
+    finally { addBtn.disabled = false; }
+  };
+
+  overlay.querySelector(".modal-close").onclick = () => {
+    if (mediaRecorder?.state === "recording") mediaRecorder.stop();
+    stopStream(); closeModal(overlay);
+  };
+  load();
 }
 
 /* ============================================================
