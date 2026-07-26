@@ -8,6 +8,9 @@ on:
     - cron: "0 3 * * 1"   # tous les lundis à 03:00 UTC
   workflow_dispatch: {}
 
+env:
+  DRIVE_FOLDER: "Sauvegardes Food-Tracker"   # dossier créé à la racine de votre Drive
+
 jobs:
   backup:
     runs-on: ubuntu-latest
@@ -22,17 +25,15 @@ jobs:
           zip -r -q "$ZIP" . -x ".git/*"
           ls -lh "$ZIP"
 
-      - name: Vérifier les secrets
+      - name: Vérifier le secret
         env:
           TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
-          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
-          MISS=0
-          if [ -z "$TOKEN" ]; then echo "::warning::Secret GDRIVE_RCLONE_TOKEN MANQUANT"; MISS=1; else echo "GDRIVE_RCLONE_TOKEN : présent ✔"; fi
-          if [ -z "$FID" ];   then echo "::warning::Secret GDRIVE_FOLDER_ID MANQUANT";   MISS=1; else echo "GDRIVE_FOLDER_ID : présent ✔"; fi
-          if [ "$MISS" = "1" ]; then
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::Secret GDRIVE_RCLONE_TOKEN MANQUANT — voir docs/SAUVEGARDE-DRIVE.md."
             echo "SKIP=1" >> "$GITHUB_ENV"
-            echo "::warning::Envoi ignoré — ajoutez les secrets (voir docs/SAUVEGARDE-DRIVE.md)."
+          else
+            echo "GDRIVE_RCLONE_TOKEN : présent ✔"
           fi
 
       - name: Installer rclone
@@ -43,22 +44,21 @@ jobs:
         if: env.SKIP != '1'
         env:
           TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
-          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           mkdir -p ~/.config/rclone
           {
             echo "[gdrive]"
             echo "type = drive"
             echo "scope = drive"
-            echo "root_folder_id = ${FID}"
             echo "token = ${TOKEN}"
           } > ~/.config/rclone/rclone.conf
 
       - name: Envoyer l'archive vers Google Drive
         if: env.SKIP != '1'
         run: |
-          rclone copy "$ZIP" gdrive: --drive-use-trash=false --verbose
-          echo "✅ Archive $ZIP envoyée dans votre Google Drive."
+          # Dépose dans un dossier (créé automatiquement) à la racine de VOTRE Drive.
+          rclone copy "$ZIP" "gdrive:${DRIVE_FOLDER}/" --drive-use-trash=false --verbose
+          echo "✅ Archive $ZIP envoyée dans « ${DRIVE_FOLDER} » sur votre Google Drive."
 
       - name: Nettoyer
         if: always()
