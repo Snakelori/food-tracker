@@ -3,6 +3,10 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.3] — 2026-07-26
+### Ajouté
+- Signature **« By Tadam-3D »** sur l'écran de connexion et dans les Réglages.
+
 ## [2.2.2] — 2026-07-26
 ### Enrichi
 - Nouvelles catégories restaurant : **Italien, Burger & Fast-food, Chinois, Thaïlandais,

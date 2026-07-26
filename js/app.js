@@ -1011,6 +1011,7 @@ async function renderReglages() {
     </div>
 
     <div class="version-badge" id="version-badge" style="cursor:pointer" title="Voir les nouveautés">Version ${window.APP_CONFIG?.APP_VERSION || "1.0.0"} · Mon Journal Alimentaire</div>
+    <p class="signature">By <span>Tadam-3D</span></p>
   `;
   el("logout-btn").onclick = logout;
   el("manage-products").onclick = openProductManager;
