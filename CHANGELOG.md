@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.1] — 2026-07-26
+### Ajouté
+- **Sauvegarde de mes données** (Réglages) : export **JSON complet** (toutes les données,
+  restaurable) et export **Journal en CSV** (pour tableur) — à ranger dans votre Drive.
+
 ## [2.3.0] — 2026-07-26
 ### Ajouté
 - **Heure de prise** indiquable au moment d'ajouter des aliments (utile notamment pour les encas).

@@ -1011,6 +1011,15 @@ async function renderReglages() {
     </div>
 
     <div class="settings-card">
+      <h3>💾 Sauvegarde de mes données</h3>
+      <p class="muted" style="margin-bottom:10px">Téléchargez une copie de vos données (à ranger dans votre Drive / cloud au cas où).</p>
+      <div class="pm-actions">
+        <button class="btn btn-soft btn-sm" id="export-json">⬇️ Sauvegarde complète (JSON)</button>
+        <button class="btn btn-ghost btn-sm" id="export-journal">📄 Journal (CSV)</button>
+      </div>
+    </div>
+
+    <div class="settings-card">
       <h3>📊 Analyses</h3>
       <p class="muted">Retrouvez dans l'onglet <b>📊 Analyses</b> les aliments à surveiller,
       ceux qui vous réussissent, l'évolution de votre ressenti et vos statistiques.</p>
@@ -1034,6 +1043,8 @@ async function renderReglages() {
   el("logout-btn").onclick = logout;
   el("manage-products").onclick = openProductManager;
   el("open-notes").onclick = openNotesManager;
+  el("export-json").onclick = exportAllData;
+  el("export-journal").onclick = exportJournalCSV;
   el("show-changelog").onclick = openChangelogModal;
   el("version-badge").onclick = openChangelogModal;
 }
@@ -1173,6 +1184,64 @@ async function openNotesManager() {
     stopStream(); closeModal(overlay);
   };
   load();
+}
+
+/* ============================================================
+   SAUVEGARDE / EXPORT COMPLET DES DONNÉES
+   ============================================================ */
+function downloadBlob(blob, filename) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function csvCell(v) { v = v == null ? "" : String(v); return /[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }
+
+// Export JSON complet (sauvegarde restaurable de toutes vos données)
+async function exportAllData() {
+  toast("Préparation de la sauvegarde…");
+  const tables = ["meals", "meal_items", "drinks", "health_states", "activities", "products", "notes", "categories"];
+  const dump = {
+    app: "Mon Journal Alimentaire — By Tadam-3D",
+    exported_at: new Date().toISOString(),
+    app_version: window.APP_CONFIG?.APP_VERSION || null,
+    user_email: state.user?.email || null,
+    data: {},
+  };
+  for (const t of tables) {
+    const { data, error } = await supabase.from(t).select("*");
+    dump.data[t] = error ? { error: error.message } : data;
+  }
+  downloadBlob(new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" }),
+    `sauvegarde-journal-${todayISO()}.json`);
+  toast("Sauvegarde exportée ✓", "ok");
+}
+
+// Export du journal (repas + aliments + nutrition) en CSV pour tableur
+async function exportJournalCSV() {
+  toast("Préparation du CSV…");
+  const { data: meals } = await supabase.from("meals")
+    .select("meal_date, meal_type, meal_time, meal_items(custom_name, quantity_kind, quantity_number, products(name,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))")
+    .order("meal_date");
+  const header = ["Date", "Heure", "Repas", "Aliment", "Quantité", "kcal", "Glucides_g", "Sucres_g", "MatGrasses_g", "Proteines_g", "Sel_g"];
+  const lines = [header.join(",")];
+  for (const m of (meals || [])) {
+    const label = mealMeta(m.meal_type).label;
+    for (const it of (m.meal_items || [])) {
+      const name = it.products?.name || it.custom_name || "Aliment";
+      const qty = it.quantity_kind === "nombre" ? `x${it.quantity_number ?? 1}` : cap(it.quantity_kind);
+      const n = itemNutrition(it);
+      lines.push([
+        m.meal_date, (m.meal_time || "").slice(0, 5), label, name, qty,
+        n ? r0(n.kcal) : "", n ? r1(n.carb) : "", n ? r1(n.sugar) : "",
+        n ? r1(n.fat) : "", n ? r1(n.prot) : "", n ? r1(n.salt) : "",
+      ].map(csvCell).join(","));
+    }
+  }
+  downloadBlob(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }),
+    `journal-alimentaire-${todayISO()}.csv`);
+  toast("Journal CSV exporté ✓", "ok");
 }
 
 /* ============================================================
