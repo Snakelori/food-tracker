@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.2] — 2026-07-26
+### Enrichi
+- Nouvelles catégories restaurant : **Italien, Burger & Fast-food, Chinois, Thaïlandais,
+  Indien, Mexicain, Libanais / Oriental**, et une catégorie **🍰 Desserts** (classiques :
+  tiramisu, fondant, crème brûlée, cheesecake…). 92 produits avec valeurs nutritionnelles.
+  À charger via `supabase/produits-restaurant-2.sql`.
+
 ## [2.2.1] — 2026-07-26
 ### Enrichi
 - Nouvelles catégories **🍕 Pizzas** (17 classiques de restaurant) et **🍣 Restaurant japonais**
