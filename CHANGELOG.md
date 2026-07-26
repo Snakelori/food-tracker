@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.7] — 2026-07-26
+### Enrichi
+- Nouvelle catégorie **🧀 Fromages** : 41 fromages connus (camembert, comté, roquefort,
+  reblochon, chèvre, mozzarella, parmesan, cheddar, gorgonzola…) avec valeurs
+  nutritionnelles. À charger via `supabase/produits-fromages.sql`.
+
 ## [2.2.6] — 2026-07-26
 ### Enrichi
 - Nouvelle catégorie **🥗 Salades** : 27 types (César, niçoise, grecque, chèvre chaud,
