@@ -1,6 +1,6 @@
 name: Sauvegarde vers Google Drive
 
-# Se déclenche à chaque push sur main, chaque lundi matin, et manuellement.
+# À chaque push sur main, chaque lundi matin, et manuellement.
 on:
   push:
     branches: [main]
@@ -11,8 +11,6 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    # Ne s'exécute que si les secrets sont configurés (évite les échecs si non paramétré)
-    if: ${{ github.event_name != 'push' || true }}
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
@@ -24,31 +22,38 @@ jobs:
           zip -r -q "$ZIP" . -x ".git/*"
           ls -lh "$ZIP"
 
-      - name: Installer rclone
-        run: curl -fsSL https://rclone.org/install.sh | sudo bash
-
       - name: Vérifier les secrets
+        env:
+          SA: ${{ secrets.GDRIVE_SA_JSON }}
+          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
-          if [ -z "${{ secrets.GDRIVE_SA_JSON }}" ] || [ -z "${{ secrets.GDRIVE_FOLDER_ID }}" ]; then
-            echo "::warning::Secrets GDRIVE_SA_JSON / GDRIVE_FOLDER_ID absents — voir docs/SAUVEGARDE-DRIVE.md. Étape d'envoi ignorée."
+          MISS=0
+          if [ -z "$SA" ]; then echo "::warning::Secret GDRIVE_SA_JSON MANQUANT"; MISS=1; else echo "GDRIVE_SA_JSON : présent ✔"; fi
+          if [ -z "$FID" ]; then echo "::warning::Secret GDRIVE_FOLDER_ID MANQUANT"; MISS=1; else echo "GDRIVE_FOLDER_ID : présent ✔"; fi
+          if [ "$MISS" = "1" ]; then
             echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "::warning::Envoi ignoré — ajoutez les secrets (voir docs/SAUVEGARDE-DRIVE.md)."
           fi
+
+      - name: Installer rclone
+        if: env.SKIP != '1'
+        run: curl -fsSL https://rclone.org/install.sh | sudo bash
 
       - name: Écrire la clé du compte de service
         if: env.SKIP != '1'
-        run: printf '%s' "$GDRIVE_SA_JSON" > "$RUNNER_TEMP/sa.json"
         env:
-          GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
+          SA: ${{ secrets.GDRIVE_SA_JSON }}
+        run: printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
 
       - name: Envoyer l'archive vers Google Drive
         if: env.SKIP != '1'
+        env:
+          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           rclone copy "$ZIP" \
-            ":drive,service_account_file=$RUNNER_TEMP/sa.json,root_folder_id=$FOLDER_ID:" \
+            ":drive,service_account_file=$RUNNER_TEMP/sa.json,root_folder_id=$FID:" \
             --drive-use-trash=false --verbose
-          echo "✅ Sauvegarde $ZIP envoyée sur Google Drive."
-        env:
-          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          echo "✅ Archive $ZIP envoyée sur Google Drive."
 
       - name: Nettoyer la clé
         if: always()
