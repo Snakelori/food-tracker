@@ -10,16 +10,26 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- Bol -->
-  <path d="M116 250 h280 a10 10 0 0 1 10 10 a150 150 0 0 1 -300 0 a10 10 0 0 1 10 -10 z" fill="url(#bowl)"/>
-  <ellipse cx="256" cy="250" rx="150" ry="30" fill="#ffffff" opacity="0.9"/>
-  <!-- Feuille centrale -->
-  <path d="M256 120 C300 150 312 210 256 244 C200 210 212 150 256 120 z" fill="#ffe08a"/>
-  <path d="M256 128 C256 180 256 210 256 240" stroke="#4fa980" stroke-width="7" fill="none" stroke-linecap="round"/>
-  <!-- Tomate -->
-  <circle cx="192" cy="212" r="30" fill="#ffb59e"/>
-  <circle cx="182" cy="202" r="7" fill="#fff" opacity="0.6"/>
-  <!-- Myrtille / accent -->
-  <circle cx="322" cy="214" r="26" fill="#c9b8e8"/>
-  <circle cx="314" cy="206" r="6" fill="#fff" opacity="0.6"/>
+  <!-- Bol (remonté pour laisser la place au wordmark) -->
+  <g transform="translate(0,-24)">
+    <path d="M116 250 h280 a10 10 0 0 1 10 10 a150 150 0 0 1 -300 0 a10 10 0 0 1 10 -10 z" fill="url(#bowl)"/>
+    <ellipse cx="256" cy="250" rx="150" ry="30" fill="#ffffff" opacity="0.9"/>
+    <!-- Feuille centrale -->
+    <path d="M256 120 C300 150 312 210 256 244 C200 210 212 150 256 120 z" fill="#ffe08a"/>
+    <path d="M256 128 C256 180 256 210 256 240" stroke="#4fa980" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <!-- Tomate -->
+    <circle cx="192" cy="212" r="30" fill="#ffb59e"/>
+    <circle cx="182" cy="202" r="7" fill="#fff" opacity="0.6"/>
+    <!-- Myrtille / accent -->
+    <circle cx="322" cy="214" r="26" fill="#c9b8e8"/>
+    <circle cx="314" cy="206" r="6" fill="#fff" opacity="0.6"/>
+  </g>
+  <!-- Wordmark TADAM-3D -->
+  <g transform="translate(256,452)">
+    <rect x="-118" y="-30" width="236" height="56" rx="28" fill="#ffffff" opacity="0.22"/>
+    <text x="0" y="10" text-anchor="middle"
+      font-family="-apple-system, Helvetica, Arial, sans-serif"
+      font-size="40" font-weight="800" letter-spacing="2"
+      fill="#ffffff">TADAM-3D</text>
+  </g>
 </svg>

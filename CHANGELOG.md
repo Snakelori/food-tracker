@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.2.4] — 2026-07-26
+### Ajouté
+- Signature **« By Tadam-3D »** dans l'en-tête de l'application (visible en permanence).
+- **Icône** de l'app brandée (wordmark « TADAM-3D ») et **écrans de démarrage (splash)**
+  iOS aux couleurs de la marque.
+
 ## [2.2.3] — 2026-07-26
 ### Ajouté
 - Signature **« By Tadam-3D »** sur l'écran de connexion et dans les Réglages.

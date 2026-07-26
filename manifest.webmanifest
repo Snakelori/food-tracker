@@ -1,7 +1,7 @@
 {
   "name": "Mon Journal Alimentaire",
   "short_name": "Journal",
-  "description": "Suivi quotidien des repas, boissons, activités et bien-être.",
+  "description": "Suivi quotidien des repas, boissons, activités et bien-être. By Tadam-3D.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
