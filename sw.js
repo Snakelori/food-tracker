@@ -1,6 +1,8 @@
 // Service Worker — cache applicatif (coquille hors-ligne)
-// Les données Supabase ne sont jamais mises en cache (toujours en réseau).
-const CACHE = "journal-v1";
+// Stratégie « réseau d'abord » : on récupère toujours la dernière version
+// quand la connexion est là, et on retombe sur le cache uniquement hors-ligne.
+// Les appels API (Supabase, esm.sh) ne sont jamais interceptés.
+const CACHE = "journal-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -19,24 +21,30 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  // Ne jamais mettre en cache les appels API (Supabase, esm.sh, auth)
+  // Ne gérer que nos propres fichiers ; laisser passer Supabase / esm.sh / etc.
   if (url.origin !== location.origin) return;
   if (e.request.method !== "GET") return;
 
-  // Réseau d'abord pour le HTML, cache d'abord pour les assets statiques
-  if (e.request.mode === "navigate") {
-    e.respondWith(fetch(e.request).catch(() => caches.match("./index.html")));
-    return;
-  }
+  // Réseau d'abord, cache en secours (hors-ligne) — garantit des mises à jour immédiates.
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() =>
+        caches.match(e.request).then((cached) =>
+          cached || (e.request.mode === "navigate" ? caches.match("./index.html") : Response.error())
+        )
+      )
   );
 });

@@ -32,6 +32,7 @@ const FEELINGS = [
   { v: 5, e: "😀", l: "Très bien" },
 ];
 const SYMPTOMS = ["Ballonnement","Lourdeur","Fatigue","Somnolence","Mal de tête","Nausée","Acidité","Faim rapide","Léger / en forme"];
+const STATS_PERIODS = [{ k: 7, l: "7 jours" }, { k: 30, l: "30 jours" }, { k: 90, l: "90 jours" }, { k: 0, l: "Tout" }];
 
 /* ---------- État global ---------- */
 const state = {
@@ -40,10 +41,14 @@ const state = {
   tab: "journee",
   categories: [],
   productsByCat: {},
+  statsPeriod: 30,
 };
 
 /* ---------- Utilitaires ---------- */
 function todayISO() { const d = new Date(); return d.toISOString().slice(0, 10); }
+function dateDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
+function average(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
+function feelColor(v) { return v >= 4 ? "var(--green)" : v >= 3 ? "var(--lemon)" : v >= 2 ? "var(--peach)" : "var(--danger)"; }
 function el(id) { return document.getElementById(id); }
 function esc(s) { return (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function mealMeta(key) { return MEAL_TYPES.find(m => m.key === key) || MEAL_TYPES[0]; }
@@ -673,6 +678,226 @@ async function renderHistorique() {
 }
 
 /* ============================================================
+   ONGLET « ANALYSES » — tableau de bord statistiques
+   ============================================================ */
+async function renderAnalyses() {
+  const panel = el("tab-analyses");
+  const period = state.statsPeriod ?? 30;
+  const from = period === 0 ? "2000-01-01" : dateDaysAgo(period);
+
+  panel.innerHTML = `
+    <div class="section-title">📊 Analyses</div>
+    <div class="cat-tabs" id="stats-period">
+      ${STATS_PERIODS.map(p => `<button class="cat-tab ${p.k === period ? "active" : ""}" data-p="${p.k}">${p.l}</button>`).join("")}
+    </div>
+    <div id="stats-body"><p class="empty-hint">Calcul en cours…</p></div>`;
+  panel.querySelectorAll("#stats-period [data-p]").forEach(b =>
+    b.onclick = () => { state.statsPeriod = Number(b.dataset.p); renderAnalyses(); });
+
+  const [mealsRes, healthRes, drinksRes, actsRes] = await Promise.all([
+    supabase.from("meals").select("id, meal_date, meal_items(custom_name, products(name,emoji,category_id))").gte("meal_date", from),
+    supabase.from("health_states").select("meal_id, log_date, feeling, symptoms").gte("log_date", from),
+    supabase.from("drinks").select("drink_type, glasses, log_date").gte("log_date", from),
+    supabase.from("activities").select("activity_date, duration_min, calories").gte("activity_date", from),
+  ]);
+  const meals = mealsRes.data || [], health = healthRes.data || [], drinks = drinksRes.data || [], acts = actsRes.data || [];
+
+  const catName = id => state.categories.find(c => c.id === id)?.name || null;
+  const itemInfo = it => it.products
+    ? { name: it.products.name, emoji: it.products.emoji || "🍴", cat: catName(it.products.category_id) }
+    : { name: it.custom_name || "Aliment", emoji: "🍴", cat: null };
+
+  // Index des repas et fréquences
+  const mealById = {}, productsByDate = {};
+  const foodFreq = new Map(), catFreq = new Map();
+  const daysSet = new Set();
+  let totalItems = 0;
+  for (const m of meals) {
+    daysSet.add(m.meal_date);
+    const prods = (m.meal_items || []).map(itemInfo);
+    mealById[m.id] = prods;
+    (productsByDate[m.meal_date] ??= []).push(...prods);
+    for (const p of prods) {
+      totalItems++;
+      const f = foodFreq.get(p.name) || { emoji: p.emoji, count: 0 };
+      f.count++; foodFreq.set(p.name, f);
+      if (p.cat) catFreq.set(p.cat, (catFreq.get(p.cat) || 0) + 1);
+    }
+  }
+
+  // Corrélation aliment ↔ ressenti + ressenti par jour
+  const foodFeel = new Map(), feelByDate = new Map();
+  const allFeel = [];
+  for (const h of health) {
+    if (h.feeling == null) continue;
+    daysSet.add(h.log_date);
+    allFeel.push(h.feeling);
+    if (!feelByDate.has(h.log_date)) feelByDate.set(h.log_date, []);
+    feelByDate.get(h.log_date).push(h.feeling);
+    const prods = h.meal_id ? (mealById[h.meal_id] || []) : (productsByDate[h.log_date] || []);
+    const seen = new Set();
+    for (const p of prods) {
+      if (seen.has(p.name)) continue; seen.add(p.name);
+      const e = foodFeel.get(p.name) || { emoji: p.emoji, feelings: [] };
+      e.feelings.push(h.feeling); foodFeel.set(p.name, e);
+    }
+  }
+
+  const MIN_OBS = 2;
+  const scored = [...foodFeel.entries()]
+    .filter(([, v]) => v.feelings.length >= MIN_OBS)
+    .map(([name, v]) => ({ name, emoji: v.emoji, n: v.feelings.length, avg: average(v.feelings) }));
+  const watch = scored.filter(s => s.avg <= 2.5).sort((a, b) => a.avg - b.avg).slice(0, 8);
+  const good = scored.filter(s => s.avg >= 4).sort((a, b) => b.avg - a.avg).slice(0, 8);
+
+  const topFoods = [...foodFreq.entries()].map(([name, v]) => ({ name, emoji: v.emoji, count: v.count }))
+    .sort((a, b) => b.count - a.count).slice(0, 8);
+  const maxFood = topFoods[0]?.count || 1;
+
+  const catRows = [...catFreq.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  const maxCat = catRows[0]?.count || 1;
+
+  // Boissons
+  let totalGlasses = 0; const drinkByType = new Map();
+  for (const d of drinks) {
+    totalGlasses += Number(d.glasses || 0);
+    drinkByType.set(d.drink_type, (drinkByType.get(d.drink_type) || 0) + Number(d.glasses || 0));
+    daysSet.add(d.log_date);
+  }
+  const water = drinkByType.get("eau") || 0;
+  const sugary = (drinkByType.get("sucree") || 0) + (drinkByType.get("gazeuse") || 0);
+  const sugaryPct = totalGlasses ? Math.round(sugary / totalGlasses * 100) : 0;
+
+  // Symptômes
+  const symFreq = new Map();
+  for (const h of health) for (const s of (h.symptoms || [])) symFreq.set(s, (symFreq.get(s) || 0) + 1);
+  const topSym = [...symFreq.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
+  const maxSym = topSym[0]?.count || 1;
+
+  // Activités
+  let totMin = 0, totCal = 0; const actDays = new Set();
+  for (const a of acts) { totMin += a.duration_min || 0; totCal += a.calories || 0; actDays.add(a.activity_date); daysSet.add(a.activity_date); }
+
+  // Tendance ressenti (30 derniers jours avec données)
+  const trend = [...feelByDate.keys()].sort().slice(-30).map(d => ({ d, avg: average(feelByDate.get(d)) }));
+
+  const nDays = Math.max(1, daysSet.size);
+  const kFeel = allFeel.length ? average(allFeel).toFixed(1) : null;
+  const kFeelEmoji = kFeel ? (FEELINGS.find(f => f.v === Math.round(kFeel))?.e || "") : "—";
+
+  // ---- Helpers de rendu ----
+  const bar = (label, val, max, opts = {}) => `
+    <div class="bar-item">
+      <div class="bar-head"><span>${label}</span><span class="bar-val">${opts.right ?? val}</span></div>
+      <div class="bar-track"><div class="bar-fill ${opts.cls || ""}" style="width:${Math.max(4, Math.round(val / max * 100))}%"></div></div>
+    </div>`;
+  const flag = (s, warn) => `
+    <div class="food-flag">
+      <span class="ff-emoji">${s.emoji}</span>
+      <div class="ff-body"><div class="ff-name">${esc(s.name)}</div><div class="ff-sub">${s.n} observation${s.n > 1 ? "s" : ""}</div></div>
+      <div class="ff-score ${warn ? "warn" : "good"}">${FEELINGS.find(f => f.v === Math.round(s.avg))?.e || ""} ${s.avg.toFixed(1)}/5</div>
+    </div>`;
+
+  // ---- Assemblage ----
+  let html = "";
+
+  if (!meals.length && !health.length && !drinks.length && !acts.length) {
+    el("stats-body").innerHTML = `<div class="analysis-card"><p class="empty-hint">
+      Aucune donnée sur cette période. Enregistrez vos repas et votre bien-être quelques jours,
+      puis revenez ici : les analyses se construiront automatiquement.</p></div>`;
+    return;
+  }
+
+  // KPIs
+  html += `<div class="day-summary" style="margin-bottom:18px">
+    <div class="stat-tile"><div class="v">${nDays}</div><div class="l">jours suivis</div></div>
+    <div class="stat-tile"><div class="v">${meals.length}</div><div class="l">repas</div></div>
+    <div class="stat-tile"><div class="v">${(totalItems / nDays).toFixed(1)}</div><div class="l">aliments/jour</div></div>
+    <div class="stat-tile"><div class="v">${(totalGlasses / nDays).toFixed(1)}</div><div class="l">verres/jour</div></div>
+    <div class="stat-tile"><div class="v">${kFeelEmoji}${kFeel ? " " + kFeel : ""}</div><div class="l">ressenti moyen</div></div>
+    <div class="stat-tile"><div class="v">${acts.length}</div><div class="l">activités</div></div>
+  </div>`;
+
+  // Aliments à surveiller
+  html += `<div class="analysis-card">
+    <h3>⚠️ Aliments à surveiller</h3>
+    <div class="sub">Aliments associés à un ressenti faible après ingestion (≥ ${MIN_OBS} observations).</div>`;
+  if (!allFeel.length) {
+    html += `<div class="unlock-hint">💡 Notez votre <b>bien-être après les repas</b> (onglet 💚 ou bouton flottant) pour débloquer l'analyse des aliments à éviter. Reliez chaque observation au repas concerné pour un résultat précis.</div>`;
+  } else if (!watch.length) {
+    html += `<p class="empty-hint">Aucun aliment ne ressort négativement pour l'instant 👍 Continuez à noter vos ressentis pour affiner.</p>`;
+  } else {
+    html += watch.map(s => flag(s, true)).join("");
+  }
+  html += `</div>`;
+
+  // Aliments qui réussissent
+  if (good.length) {
+    html += `<div class="analysis-card">
+      <h3>💚 Ce qui vous réussit</h3>
+      <div class="sub">Aliments associés à un bon ressenti après ingestion.</div>
+      ${good.map(s => flag(s, false)).join("")}</div>`;
+  }
+
+  // Tendance du ressenti
+  if (trend.length) {
+    html += `<div class="analysis-card">
+      <h3>📈 Évolution du ressenti</h3>
+      <div class="sub">Moyenne quotidienne (${trend.length} jour${trend.length > 1 ? "s" : ""} avec observation).</div>
+      <div class="trend">${trend.map(t => `<div class="trend-bar" title="${t.d} : ${t.avg.toFixed(1)}/5" style="height:${Math.round(t.avg / 5 * 100)}%;background:${feelColor(t.avg)}"></div>`).join("")}</div>
+      <div class="trend-scale"><span>😣 1</span><span>😀 5</span></div></div>`;
+  }
+
+  // Aliments les plus fréquents
+  if (topFoods.length) {
+    html += `<div class="analysis-card">
+      <h3>🍽️ Aliments les plus consommés</h3>
+      ${topFoods.map(f => bar(`${f.emoji} ${esc(f.name)}`, f.count, maxFood, { right: `${f.count}×` })).join("")}</div>`;
+  }
+
+  // Répartition par catégorie
+  if (catRows.length) {
+    const totalCat = catRows.reduce((s, c) => s + c.count, 0) || 1;
+    html += `<div class="analysis-card">
+      <h3>🗂️ Répartition par catégorie</h3>
+      ${catRows.map(c => bar(esc(c.name), c.count, maxCat, { right: `${Math.round(c.count / totalCat * 100)}%` })).join("")}</div>`;
+  }
+
+  // Boissons
+  if (drinks.length) {
+    html += `<div class="analysis-card">
+      <h3>🥤 Hydratation & boissons</h3>
+      <div class="sub">Sur la période : ${totalGlasses} verres au total.</div>
+      ${bar("💧 Eau", water, totalGlasses || 1, { cls: "sky", right: `${water}` })}
+      ${bar("🥤 Sucrées / gazeuses", sugary, totalGlasses || 1, { cls: "warn", right: `${sugary} (${sugaryPct}%)` })}
+      ${sugaryPct >= 25 ? `<div class="unlock-hint" style="margin-top:10px">🎯 ${sugaryPct}% de vos boissons sont sucrées/gazeuses — un levier direct pour la perte de poids.</div>` : ""}
+    </div>`;
+  }
+
+  // Symptômes
+  if (topSym.length) {
+    html += `<div class="analysis-card">
+      <h3>🩺 Symptômes les plus fréquents</h3>
+      ${topSym.map(s => bar(esc(s.name), s.count, maxSym, { cls: "warn", right: `${s.count}×` })).join("")}</div>`;
+  }
+
+  // Activité
+  if (acts.length) {
+    html += `<div class="analysis-card">
+      <h3>🏃 Activité physique</h3>
+      <div class="day-summary" style="margin:6px 0 0">
+        <div class="stat-tile"><div class="v">${actDays.size}</div><div class="l">jours actifs</div></div>
+        <div class="stat-tile"><div class="v">${totMin}</div><div class="l">minutes</div></div>
+        <div class="stat-tile"><div class="v">${totCal || "–"}</div><div class="l">kcal dépensées</div></div>
+      </div></div>`;
+  }
+
+  html += `<p class="stats-note">Les corrélations sont indicatives et fondées sur vos propres observations : plus vous notez vos repas et votre bien-être, plus elles deviennent fiables. Elles ne remplacent pas un avis médical.</p>`;
+
+  el("stats-body").innerHTML = html;
+}
+
+/* ============================================================
    ONGLET « RÉGLAGES »
    ============================================================ */
 async function renderReglages() {
@@ -695,9 +920,9 @@ async function renderReglages() {
     </div>
 
     <div class="settings-card">
-      <h3>📊 Analyses (à venir)</h3>
-      <p class="muted">La version 2 croisera vos repas et votre bien-être pour identifier
-      les aliments à éviter, ceux qui vous réussissent, et votre progression.</p>
+      <h3>📊 Analyses</h3>
+      <p class="muted">Retrouvez dans l'onglet <b>📊 Analyses</b> les aliments à surveiller,
+      ceux qui vous réussissent, l'évolution de votre ressenti et vos statistiques.</p>
     </div>
 
     <div class="settings-card">
@@ -794,6 +1019,7 @@ function switchTab(tab) {
   el("tab-" + tab).classList.add("active");
   if (tab === "journee") renderJournee();
   if (tab === "historique") renderHistorique();
+  if (tab === "analyses") renderAnalyses();
   if (tab === "bienetre") renderBienetre();
   if (tab === "reglages") renderReglages();
 }

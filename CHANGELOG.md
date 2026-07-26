@@ -3,6 +3,20 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.0.0] — 2026-07-26
+### Ajouté — Tableau de bord d'analyses (onglet 📊)
+- **Aliments à surveiller** : croise vos repas et vos ressentis pour faire ressortir
+  les aliments associés à un mauvais état après ingestion.
+- **Ce qui vous réussit** : les aliments associés à un bon ressenti.
+- **Évolution du ressenti** dans le temps (graphique quotidien coloré).
+- **Aliments les plus consommés** et **répartition par catégorie**.
+- **Hydratation & boissons** : part des boissons sucrées/gazeuses (levier perte de poids).
+- **Symptômes les plus fréquents** et **résumé d'activité physique**.
+- Sélecteur de période : 7 / 30 / 90 jours / tout.
+### Corrigé
+- Service worker en « réseau d'abord » : les mises à jour de l'app arrivent
+  désormais immédiatement (plus de version figée en cache).
+
 ## [1.2.0] — 2026-07-26
 ### Ajouté
 - **Journal des versions consultable dans l'app** : Réglages → « Voir le journal »
@@ -31,8 +45,6 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 - Application installable (PWA) sur iPhone, Android, Mac et Windows.
 - Design clair et apaisant, responsive mobile et ordinateur.
 
-## [À venir] — Version 2
-- Tableau de bord de statistiques : corrélations aliments ↔ bien-être.
-- Identification des aliments à éviter et de ceux qui vous réussissent.
+## [À venir]
 - Suivi de la tendance de poids et objectifs.
 - Export des données (CSV / PDF).
