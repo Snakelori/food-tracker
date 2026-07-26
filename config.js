@@ -11,7 +11,7 @@
 //      Ne mettez JAMAIS la clé "service_role" ici.
 // ============================================================
 window.APP_CONFIG = {
-  SUPABASE_URL: "https://VOTRE-PROJET.supabase.co",
-  SUPABASE_ANON_KEY: "VOTRE_CLE_ANON_PUBLIC",
+  SUPABASE_URL: "https://hamratuhkgtadjlrdler.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhbXJhdHVoa2d0YWRqbHJkbGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwNjU4NDQsImV4cCI6MjEwMDY0MTg0NH0.qvujRBFrZiWxZ9X_00WXHpJHTFyDBKEASsJGc32Mc3o",
   APP_VERSION: "1.0.0"
 };
