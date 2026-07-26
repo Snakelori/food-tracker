@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.2] — 2026-07-27
+### Corrigé
+- **Bug de date** : la nuit (après minuit), l'application affichait la veille comme
+  « aujourd'hui » et les flèches étaient décalées d'un jour — la date était calculée en
+  UTC. Elle utilise désormais l'**heure locale** partout.
+
 ## [2.3.1] — 2026-07-26
 ### Ajouté
 - **Sauvegarde de mes données** (Réglages) : export **JSON complet** (toutes les données,

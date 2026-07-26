@@ -45,8 +45,12 @@ const state = {
 };
 
 /* ---------- Utilitaires ---------- */
-function todayISO() { const d = new Date(); return d.toISOString().slice(0, 10); }
-function dateDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
+// Date locale au format YYYY-MM-DD (JAMAIS toISOString, qui renvoie l'UTC et décale d'un jour la nuit)
+function toISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function todayISO() { return toISODate(new Date()); }
+function dateDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return toISODate(d); }
 function average(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
 function feelColor(v) { return v >= 4 ? "var(--green)" : v >= 3 ? "var(--lemon)" : v >= 2 ? "var(--peach)" : "var(--danger)"; }
 
@@ -80,7 +84,7 @@ function fmtDateLabel(iso) {
   const t = todayISO();
   if (iso === t) return "Aujourd'hui";
   const yest = new Date(); yest.setDate(yest.getDate() - 1);
-  if (iso === yest.toISOString().slice(0, 10)) return "Hier";
+  if (iso === toISODate(yest)) return "Hier";
   return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 }
 function fmtLong(iso) {
@@ -704,7 +708,7 @@ async function renderHistorique() {
   const panel = el("tab-historique");
   panel.innerHTML = `<p class="empty-hint">Chargement…</p>`;
   const since = new Date(); since.setDate(since.getDate() - 13);
-  const sinceISO = since.toISOString().slice(0, 10);
+  const sinceISO = toISODate(since);
 
   const [meals, drinks, health, acts] = await Promise.all([
     supabase.from("meals").select("meal_date, meal_type, meal_items(id)").gte("meal_date", sinceISO),
@@ -1532,7 +1536,7 @@ function syncDateUI() {
 function shiftDate(days) {
   const d = new Date(state.date + "T00:00:00");
   d.setDate(d.getDate() + days);
-  state.date = d.toISOString().slice(0, 10);
+  state.date = toISODate(d);
   syncDateUI();
   if (state.tab === "journee") renderJournee();
   if (state.tab === "bienetre") renderBienetre();
