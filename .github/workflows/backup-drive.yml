@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  DRIVE_FOLDER: "Sauvegardes Food-Tracker"   # dossier créé à la racine de votre Drive
+  DRIVE_FOLDER: "Sauvegardes Food-Tracker"   # utilisé seulement si aucun ID n'est fourni
 
 jobs:
   backup:
@@ -40,25 +40,36 @@ jobs:
         if: env.SKIP != '1'
         run: curl -fsSL https://rclone.org/install.sh | sudo bash
 
-      - name: Configurer rclone (votre compte Google)
+      - name: Configurer rclone et envoyer
         if: env.SKIP != '1'
         env:
           TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
+          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
+          # Nettoyage tolérant de l'ID : accepte aussi une URL complète collée par erreur
+          FID="${FID##*/folders/}"     # retire https://…/folders/
+          FID="${FID%%\?*}"            # retire ?usp=…
+          FID="$(printf '%s' "$FID" | tr -d '[:space:]')"
+
           mkdir -p ~/.config/rclone
           {
             echo "[gdrive]"
             echo "type = drive"
             echo "scope = drive"
             echo "token = ${TOKEN}"
+            if [ -n "$FID" ]; then echo "root_folder_id = ${FID}"; fi
           } > ~/.config/rclone/rclone.conf
 
-      - name: Envoyer l'archive vers Google Drive
-        if: env.SKIP != '1'
-        run: |
-          # Dépose dans un dossier (créé automatiquement) à la racine de VOTRE Drive.
-          rclone copy "$ZIP" "gdrive:${DRIVE_FOLDER}/" --drive-use-trash=false --verbose
-          echo "✅ Archive $ZIP envoyée dans « ${DRIVE_FOLDER} » sur votre Google Drive."
+          if [ -n "$FID" ]; then
+            echo "Destination : dossier ID ${FID}"
+            DEST="gdrive:"
+          else
+            echo "Destination : dossier « ${DRIVE_FOLDER} » (créé par nom, à la racine)"
+            DEST="gdrive:${DRIVE_FOLDER}/"
+          fi
+
+          rclone copy "$ZIP" "$DEST" --drive-use-trash=false --verbose
+          echo "✅ Archive $ZIP envoyée sur votre Google Drive."
 
       - name: Nettoyer
         if: always()
