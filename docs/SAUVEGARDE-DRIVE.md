@@ -55,5 +55,47 @@ Sur `github.com/Snakelori/food-tracker` → **Settings → Secrets and variables
 - Tant que les secrets ne sont pas configurés, le workflow s'exécute **sans erreur** mais
   saute l'envoi (avertissement dans le log).
 - Les archives portent la **date du jour** ; le cron du lundi garde un instantané hebdomadaire.
-- Ceci sauvegarde le **code**. Pour les **données** (repas, notes…), utilisez
-  *Réglages → 💾 Sauvegarde de mes données* dans l'app (export JSON à ranger sur le Drive).
+
+---
+
+# 🗄️ Sauvegarde automatique de la BASE DE DONNÉES
+
+Le workflow [`.github/workflows/db-backup-drive.yml`](../.github/workflows/db-backup-drive.yml)
+fait un **`pg_dump`** de votre base Supabase **chaque jour** (02:00 UTC) et l'envoie sur
+votre Drive (sous-dossier `base-de-donnees/`, à côté des sauvegardes du code).
+
+## Configuration (une seule fois)
+
+### 1. Récupérer la chaîne de connexion
+1. Dans votre projet Supabase → **Settings → Database → Connection string**.
+2. Choisissez l'onglet **Session pooler** (ou **Direct connection**) — **PAS** « Transaction pooler »
+   (incompatible avec `pg_dump`).
+3. Format **URI** : copiez la ligne `postgresql://postgres.[...]:[YOUR-PASSWORD]@...:5432/postgres`.
+4. Remplacez `[YOUR-PASSWORD]` par le **mot de passe de votre base**
+   *(oublié ? Settings → Database → Reset database password)*.
+
+### 2. Ajouter le secret sur GitHub
+**Settings → Secrets and variables → Actions → New repository secret** :
+
+| Nom du secret       | Valeur                                   |
+|---------------------|------------------------------------------|
+| `SUPABASE_DB_URL`   | La chaîne de connexion complète (étape 1) |
+
+*(Le jeton `GDRIVE_RCLONE_TOKEN` déjà en place est réutilisé pour l'envoi.)*
+
+### 3. Tester
+- Onglet **Actions** → **Sauvegarde base de données vers Drive** → **Run workflow**.
+- Après ~1 min, `food-db-AAAA-MM-JJ.sql.gz` apparaît dans `base-de-donnees/` sur le Drive. ✅
+
+## Restaurer (en cas de besoin)
+```bash
+gunzip food-db-AAAA-MM-JJ.sql.gz
+psql "VOTRE_CHAINE_DE_CONNEXION" -f food-db-AAAA-MM-JJ.sql
+```
+
+## Bon à savoir
+- Sauvegarde le **schéma `public`** (vos données : repas, produits, notes, etc.).
+- **Non inclus** : les fichiers **audio** des notes (stockés dans Supabase Storage) et les
+  **comptes** (gérés par Supabase Auth). Pour les données applicatives courantes, c'est couvert.
+- Pour une copie ponctuelle « à la main », l'export *Réglages → 💾 Sauvegarde de mes données*
+  (JSON) reste disponible dans l'app.

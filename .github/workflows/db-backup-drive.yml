@@ -1,0 +1,73 @@
+name: Sauvegarde base de données vers Drive
+
+# Tous les jours à 02:00 UTC, et à la demande.
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  db-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier les secrets
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
+        run: |
+          MISS=0
+          if [ -z "$DB" ];    then echo "::warning::Secret SUPABASE_DB_URL MANQUANT";     MISS=1; else echo "SUPABASE_DB_URL : présent ✔"; fi
+          if [ -z "$TOKEN" ]; then echo "::warning::Secret GDRIVE_RCLONE_TOKEN MANQUANT"; MISS=1; else echo "GDRIVE_RCLONE_TOKEN : présent ✔"; fi
+          if [ "$MISS" = "1" ]; then
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "::warning::Sauvegarde ignorée — voir docs/SAUVEGARDE-DRIVE.md."
+          fi
+
+      - name: Installer le client PostgreSQL 17
+        if: env.SKIP != '1'
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump de la base (schéma public)
+        if: env.SKIP != '1'
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          FILE="food-db-$(date +%Y-%m-%d).sql.gz"
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          pg_dump "$DB" --schema=public --no-owner --no-privileges | gzip > "$FILE"
+          echo "Taille du dump :"; ls -lh "$FILE"
+
+      - name: Installer rclone
+        if: env.SKIP != '1'
+        run: curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configurer rclone et envoyer
+        if: env.SKIP != '1'
+        env:
+          TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
+          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          FID="${FID##*/folders/}"; FID="${FID%%\?*}"; FID="$(printf '%s' "$FID" | tr -d '[:space:]')"
+          mkdir -p ~/.config/rclone
+          {
+            echo "[gdrive]"
+            echo "type = drive"
+            echo "scope = drive"
+            echo "token = ${TOKEN}"
+            if [ -n "$FID" ]; then echo "root_folder_id = ${FID}"; fi
+          } > ~/.config/rclone/rclone.conf
+          if [ -n "$FID" ]; then
+            DEST="gdrive:base-de-donnees/"
+          else
+            DEST="gdrive:Sauvegardes Food-Tracker/base-de-donnees/"
+          fi
+          rclone copy "$FILE" "$DEST" --drive-use-trash=false --verbose
+          echo "✅ $FILE envoyé sur votre Google Drive."
+
+      - name: Nettoyer
+        if: always()
+        run: rm -f ~/.config/rclone/rclone.conf
