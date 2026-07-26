@@ -24,12 +24,12 @@ jobs:
 
       - name: Vérifier les secrets
         env:
-          SA: ${{ secrets.GDRIVE_SA_JSON }}
+          TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
           FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           MISS=0
-          if [ -z "$SA" ]; then echo "::warning::Secret GDRIVE_SA_JSON MANQUANT"; MISS=1; else echo "GDRIVE_SA_JSON : présent ✔"; fi
-          if [ -z "$FID" ]; then echo "::warning::Secret GDRIVE_FOLDER_ID MANQUANT"; MISS=1; else echo "GDRIVE_FOLDER_ID : présent ✔"; fi
+          if [ -z "$TOKEN" ]; then echo "::warning::Secret GDRIVE_RCLONE_TOKEN MANQUANT"; MISS=1; else echo "GDRIVE_RCLONE_TOKEN : présent ✔"; fi
+          if [ -z "$FID" ];   then echo "::warning::Secret GDRIVE_FOLDER_ID MANQUANT";   MISS=1; else echo "GDRIVE_FOLDER_ID : présent ✔"; fi
           if [ "$MISS" = "1" ]; then
             echo "SKIP=1" >> "$GITHUB_ENV"
             echo "::warning::Envoi ignoré — ajoutez les secrets (voir docs/SAUVEGARDE-DRIVE.md)."
@@ -39,22 +39,27 @@ jobs:
         if: env.SKIP != '1'
         run: curl -fsSL https://rclone.org/install.sh | sudo bash
 
-      - name: Écrire la clé du compte de service
+      - name: Configurer rclone (votre compte Google)
         if: env.SKIP != '1'
         env:
-          SA: ${{ secrets.GDRIVE_SA_JSON }}
-        run: printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          TOKEN: ${{ secrets.GDRIVE_RCLONE_TOKEN }}
+          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          mkdir -p ~/.config/rclone
+          {
+            echo "[gdrive]"
+            echo "type = drive"
+            echo "scope = drive"
+            echo "root_folder_id = ${FID}"
+            echo "token = ${TOKEN}"
+          } > ~/.config/rclone/rclone.conf
 
       - name: Envoyer l'archive vers Google Drive
         if: env.SKIP != '1'
-        env:
-          FID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
-          rclone copy "$ZIP" \
-            ":drive,service_account_file=$RUNNER_TEMP/sa.json,root_folder_id=$FID:" \
-            --drive-use-trash=false --verbose
-          echo "✅ Archive $ZIP envoyée sur Google Drive."
+          rclone copy "$ZIP" gdrive: --drive-use-trash=false --verbose
+          echo "✅ Archive $ZIP envoyée dans votre Google Drive."
 
-      - name: Nettoyer la clé
+      - name: Nettoyer
         if: always()
-        run: rm -f "$RUNNER_TEMP/sa.json"
+        run: rm -f ~/.config/rclone/rclone.conf
