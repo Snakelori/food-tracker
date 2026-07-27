@@ -842,13 +842,56 @@ async function renderAnalyses() {
   panel.querySelectorAll("#stats-period [data-p]").forEach(b =>
     b.onclick = () => { state.statsPeriod = Number(b.dataset.p); renderAnalyses(); });
 
-  const [mealsRes, healthRes, drinksRes, actsRes] = await Promise.all([
+  const [mealsRes, healthRes, drinksRes, actsRes, wRes, gRes] = await Promise.all([
     supabase.from("meals").select("id, meal_date, meal_items(custom_name, quantity_kind, quantity_number, products(name,emoji,category_id,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))").gte("meal_date", from),
     supabase.from("health_states").select("meal_id, log_date, feeling, symptoms").gte("log_date", from),
     supabase.from("drinks").select("drink_type, glasses, log_date").gte("log_date", from),
     supabase.from("activities").select("activity_date, duration_min, calories").gte("activity_date", from),
+    supabase.from("weights").select("log_date, weight_kg").order("log_date"),
+    supabase.from("user_goals").select("*").maybeSingle(),
   ]);
   const meals = mealsRes.data || [], health = healthRes.data || [], drinks = drinksRes.data || [], acts = actsRes.data || [];
+  const weights = wRes.data || [], goal = gRes.data || null;
+  const latestW = weights.length ? weights[weights.length - 1] : null;
+
+  // ---- Carte Poids & objectif ----
+  const buildWeightCard = () => {
+    const cur = latestW ? Number(latestW.weight_kg) : null;
+    const target = goal?.target_weight_kg != null ? Number(goal.target_weight_kg) : null;
+    const start = goal?.start_weight_kg != null ? Number(goal.start_weight_kg) : (weights[0] ? Number(weights[0].weight_kg) : null);
+    const h = goal?.height_cm ? Number(goal.height_cm) : null;
+    const bmi = (cur && h) ? cur / Math.pow(h / 100, 2) : null;
+    const toGo = (cur != null && target != null) ? (cur - target) : null;
+    const since = (cur != null && start != null) ? (cur - start) : null;
+    let inner;
+    if (cur == null) {
+      inner = `<p class="empty-hint">Aucune pesée. Cliquez sur « + Peser » pour commencer, et « 🎯 Objectif » pour définir votre cible.</p>`;
+    } else {
+      inner = `<div class="wc-current">${cur.toFixed(1)}<span> kg</span></div>
+        <div class="wc-date sub">au ${new Date(latestW.log_date + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</div>`;
+      if (target != null && start != null && start !== target) {
+        const pct = Math.max(0, Math.min(100, Math.round((start - cur) / (start - target) * 100)));
+        inner += `<div class="wc-progress"><div class="wc-progress-fill" style="width:${pct}%"></div></div>
+          <div class="wc-progress-labels"><span>${start.toFixed(1)} kg</span><span><b>${pct}%</b></span><span>🎯 ${target.toFixed(1)} kg</span></div>`;
+      }
+      inner += `<div class="day-summary" style="margin-top:12px">
+        ${target != null ? `<div class="stat-tile"><div class="v">${target.toFixed(1)}<span class="u">kg</span></div><div class="l">objectif</div></div>` : ""}
+        ${toGo != null ? `<div class="stat-tile"><div class="v">${toGo > 0 ? "−" : "+"}${Math.abs(toGo).toFixed(1)}<span class="u">kg</span></div><div class="l">${toGo > 0 ? "à perdre" : "sous l'objectif"}</div></div>` : ""}
+        ${since != null ? `<div class="stat-tile"><div class="v">${since > 0 ? "+" : "−"}${Math.abs(since).toFixed(1)}<span class="u">kg</span></div><div class="l">depuis le début</div></div>` : ""}
+        ${bmi != null ? `<div class="stat-tile"><div class="v">${bmi.toFixed(1)}</div><div class="l">IMC</div></div>` : ""}
+      </div>`;
+      inner += weightSparkline(weights.slice(-30), target);
+    }
+    return `<div class="analysis-card">
+      <div class="wc-head"><h3>⚖️ Poids & objectif</h3>
+        <div class="wc-actions"><button class="btn btn-primary btn-sm" id="w-add">+ Peser</button>
+          <button class="btn btn-ghost btn-sm" id="w-goal">🎯 Objectif</button></div></div>
+      ${inner}</div>`;
+  };
+  const wireWeight = () => {
+    const a = document.getElementById("w-add"); if (a) a.onclick = () => openWeightModal(latestW, () => renderAnalyses());
+    const g = document.getElementById("w-goal"); if (g) g.onclick = () => openGoalModal(goal, () => renderAnalyses());
+  };
 
   const catName = id => state.categories.find(c => c.id === id)?.name || null;
   const itemInfo = it => it.products
@@ -951,12 +994,16 @@ async function renderAnalyses() {
   // ---- Assemblage ----
   let html = "";
 
-  if (!meals.length && !health.length && !drinks.length && !acts.length) {
-    el("stats-body").innerHTML = `<div class="analysis-card"><p class="empty-hint">
-      Aucune donnée sur cette période. Enregistrez vos repas et votre bien-être quelques jours,
+  if (!meals.length && !health.length && !drinks.length && !acts.length && !weights.length) {
+    el("stats-body").innerHTML = buildWeightCard() + `<div class="analysis-card"><p class="empty-hint">
+      Aucune donnée sur cette période. Enregistrez vos repas, votre bien-être ou une pesée,
       puis revenez ici : les analyses se construiront automatiquement.</p></div>`;
+    wireWeight();
     return;
   }
+
+  // Poids & objectif (en tête)
+  html += buildWeightCard();
 
   // KPIs
   html += `<div class="day-summary" style="margin-bottom:18px">
@@ -981,6 +1028,7 @@ async function renderAnalyses() {
         <div class="stat-tile"><div class="v">${r0(avg("prot"))}<span class="u">g</span></div><div class="l">protéines</div></div>
         <div class="stat-tile"><div class="v">${r1(avg("salt"))}<span class="u">g</span></div><div class="l">sel</div></div>
       </div>
+      ${goal?.daily_kcal_goal ? `<p class="sub" style="margin-top:10px">🎯 Objectif : <b>${goal.daily_kcal_goal} kcal/jour</b> · moyenne actuelle : <b>${r0(avg("kcal"))} kcal</b> (${r0(avg("kcal")) <= goal.daily_kcal_goal ? "dans l'objectif ✅" : "au-dessus"}).</p>` : ""}
       <p class="sub" style="margin-top:10px">Estimation d'après les valeurs moyennes du catalogue et la taille de portion. Les aliments saisis librement (hors catalogue) ne sont pas comptés.</p>
     </div>`;
   }
@@ -1062,6 +1110,74 @@ async function renderAnalyses() {
   html += `<p class="stats-note">Les corrélations sont indicatives et fondées sur vos propres observations : plus vous notez vos repas et votre bien-être, plus elles deviennent fiables. Elles ne remplacent pas un avis médical.</p>`;
 
   el("stats-body").innerHTML = html;
+  wireWeight();
+}
+
+/* Mini-courbe SVG de l'évolution du poids */
+function weightSparkline(ws, target) {
+  if (ws.length < 2) return "";
+  const vals = ws.map(w => Number(w.weight_kg));
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (target != null) { min = Math.min(min, target); max = Math.max(max, target); }
+  const range = (max - min) || 1;
+  const W = 300, H = 80, pad = 10;
+  const x = i => pad + (i / (ws.length - 1)) * (W - 2 * pad);
+  const y = v => pad + (1 - (v - min) / range) * (H - 2 * pad);
+  const pts = ws.map((w, i) => `${x(i).toFixed(1)},${y(vals[i]).toFixed(1)}`).join(" ");
+  const dots = ws.map((w, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(vals[i]).toFixed(1)}" r="2.5" fill="var(--green-deep)"/>`).join("");
+  const tline = target != null ? `<line x1="${pad}" y1="${y(target).toFixed(1)}" x2="${W - pad}" y2="${y(target).toFixed(1)}" stroke="var(--peach)" stroke-width="1.5" stroke-dasharray="4 4"/>` : "";
+  return `<svg class="weight-spark" viewBox="0 0 ${W} ${H}">${tline}
+    <polyline points="${pts}" fill="none" stroke="var(--green-deep)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>`;
+}
+
+/* ---------- Modale : peser ---------- */
+function openWeightModal(latest, onSaved) {
+  const overlay = openModal(`
+    <div class="modal-head"><h2>⚖️ Peser</h2><button class="modal-close">✕</button></div>
+    <div class="field"><label>Date</label><input type="date" id="w-date" value="${todayISO()}"></div>
+    <div class="field"><label>Poids (kg)</label>
+      <input type="number" id="w-kg" step="0.1" min="0" inputmode="decimal" placeholder="ex : 72.5" value="${latest?.weight_kg ?? ""}"></div>
+    <button class="btn btn-primary btn-block" id="w-save">Enregistrer</button>
+  `);
+  overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
+  overlay.querySelector("#w-save").onclick = async () => {
+    const kg = Number(overlay.querySelector("#w-kg").value);
+    const date = overlay.querySelector("#w-date").value;
+    if (!kg || kg <= 0) return toast("Indiquez un poids valide", "err");
+    const { error } = await supabase.from("weights")
+      .upsert({ user_id: state.user.id, log_date: date, weight_kg: kg }, { onConflict: "user_id,log_date" });
+    if (error) return toast("Erreur : " + error.message, "err");
+    closeModal(overlay); toast("Poids enregistré", "ok"); onSaved && onSaved();
+  };
+}
+
+/* ---------- Modale : objectif ---------- */
+function openGoalModal(goal, onSaved) {
+  const v = k => goal?.[k] ?? "";
+  const overlay = openModal(`
+    <div class="modal-head"><h2>🎯 Mon objectif</h2><button class="modal-close">✕</button></div>
+    <div class="field"><label>Objectif de poids (kg)</label>
+      <input type="number" id="g-target" step="0.1" min="0" value="${v("target_weight_kg")}" placeholder="ex : 68"></div>
+    <div class="field"><label>Poids de départ (kg)</label>
+      <input type="number" id="g-start" step="0.1" min="0" value="${v("start_weight_kg")}" placeholder="ex : 75"></div>
+    <div class="field"><label>Taille (cm) — pour calculer l'IMC</label>
+      <input type="number" id="g-height" step="1" min="0" value="${v("height_cm")}" placeholder="ex : 175"></div>
+    <div class="field"><label>Objectif calories / jour (optionnel)</label>
+      <input type="number" id="g-kcal" step="10" min="0" value="${v("daily_kcal_goal")}" placeholder="ex : 1800"></div>
+    <button class="btn btn-primary btn-block" id="g-save">Enregistrer</button>
+  `);
+  overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
+  overlay.querySelector("#g-save").onclick = async () => {
+    const num = id => { const x = overlay.querySelector(id).value; return x === "" ? null : Number(x); };
+    const { error } = await supabase.from("user_goals").upsert({
+      user_id: state.user.id,
+      target_weight_kg: num("#g-target"), start_weight_kg: num("#g-start"),
+      height_cm: num("#g-height"), daily_kcal_goal: num("#g-kcal"),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    if (error) return toast("Erreur : " + error.message, "err");
+    closeModal(overlay); toast("Objectif enregistré", "ok"); onSaved && onSaved();
+  };
 }
 
 /* ============================================================

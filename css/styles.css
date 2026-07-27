@@ -526,6 +526,19 @@ body {
   font-size: 13px; color: #b06a3c; line-height: 1.5;
 }
 
+/* Carte Poids & objectif */
+.wc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.wc-head h3 { font-size: 15px; }
+.wc-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.wc-current { font-size: 42px; font-weight: 800; color: var(--green-deep); line-height: 1; margin-top: 6px; }
+.wc-current span { font-size: 18px; font-weight: 700; color: var(--ink-soft); }
+.wc-date { margin-top: 3px; }
+.wc-progress { height: 12px; background: var(--green-soft); border-radius: 8px; overflow: hidden; margin-top: 14px; }
+.wc-progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-deep)); border-radius: 8px; transition: width .4s; }
+.wc-progress-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-soft); font-weight: 600; margin-top: 5px; }
+.wc-progress-labels b { color: var(--green-deep); }
+.weight-spark { width: 100%; height: auto; display: block; margin-top: 14px; }
+
 /* Journal des versions */
 .changelog { font-size: 14px; line-height: 1.5; color: var(--ink); }
 .changelog .cl-version {

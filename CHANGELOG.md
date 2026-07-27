@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.4.0] — 2026-07-28
+### Ajouté — Suivi du poids & objectifs
+- Carte **⚖️ Poids & objectif** en tête de l'onglet Analyses : poids actuel, **objectif**,
+  barre de progression, kg à perdre, variation depuis le début, **IMC**, et **courbe d'évolution**.
+- Bouton **+ Peser** (une pesée par jour) et **🎯 Objectif** (poids cible, poids de départ,
+  taille, objectif calories/jour).
+- L'objectif calorique s'affiche dans la carte Nutrition (moyenne vs objectif).
+- À activer via `supabase/poids.sql`.
+
 ## [2.3.7] — 2026-07-28
 ### Enrichi
 - 5 nouvelles catégories : **🥨 Apéritif** (cacahuètes, biscuits apéro, saucisson…),
