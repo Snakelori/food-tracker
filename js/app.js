@@ -239,62 +239,28 @@ async function renderJournee() {
       <div class="stat-tile"><div class="v">${calBrulees || "–"}</div><div class="l">kcal dépensées</div></div>
     </div>`;
 
-  // Cartes repas
+  // Cartes des repas principaux (petit-déj, déjeuner, dîner)
   for (const mt of MEAL_TYPES) {
+    if (mt.key === "encas") continue;
     const meal = day.meals.find(m => m.meal_type === mt.key);
-    const items = meal?.meal_items || [];
     const mealDrinks = day.drinks.filter(d => d.meal_id === meal?.id);
-
-    html += `<div class="meal-card">
-      <div class="meal-card-head">
-        <div class="meal-title">
-          <span class="meal-emoji ${mt.bg}">${mt.emoji}</span>
-          <div>${mt.label}
-            <div class="meal-time">${meal
-              ? `🕐 <input type="time" value="${meal.meal_time || ""}" data-meal-time="${meal.id}">`
-              : `<span class="muted">non renseigné</span>`}</div>
-          </div>
-        </div>
-        <button class="btn btn-soft btn-sm" data-add-item="${mt.key}">+ Aliment</button>
-      </div>`;
-
-    if (items.length) {
-      html += `<ul class="item-list">` + items.map(it => {
-        const name = it.products?.name || it.custom_name || "Aliment";
-        const emo = it.products?.emoji || "🍴";
-        const qty = it.quantity_kind === "nombre"
-          ? `× ${it.quantity_number ?? 1}`
-          : cap(it.quantity_kind);
-        return `<li class="item-row">
-          <span class="item-main">${emo} ${esc(name)}</span>
-          <span style="display:flex;align-items:center;gap:8px">
-            <span class="item-qty">${qty}</span>
-            <button class="item-edit" data-edit-item="${it.id}" title="Modifier">✏️</button>
-            <button class="item-del" data-del-item="${it.id}">✕</button>
-          </span></li>`;
-      }).join("") + `</ul>`;
-    } else {
-      html += `<p class="empty-hint">Rien pour l'instant.</p>`;
-    }
-
-    // Totaux nutritionnels du repas
-    const mealNutri = emptyNutri();
-    for (const it of items) addNutri(mealNutri, itemNutrition(it));
-    if (mealNutri.kcal > 0) {
-      html += `<div class="meal-nutri">🔥 ${r0(mealNutri.kcal)} kcal · 🍬 ${r1(mealNutri.sugar)} g · 🧈 ${r1(mealNutri.fat)} g · 🥩 ${r1(mealNutri.prot)} g prot.</div>`;
-    }
-
-    // Boissons rattachées au repas
-    if (mealDrinks.length) {
-      html += `<div class="pill-row">` + mealDrinks.map(d => {
-        const dm = drinkMeta(d.drink_type);
-        return `<span class="pill">${dm.emoji} ${dm.label} · ${d.glasses} verre${d.glasses > 1 ? "s" : ""}
-          <span class="x" data-del-drink="${d.id}">✕</span></span>`;
-      }).join("") + `</div>`;
-    }
-    html += `<div class="add-line"><button class="btn btn-sm" data-add-drink="${mt.key}">🥤 Ajouter une boisson</button></div>`;
-    html += `</div>`;
+    html += mealCardHtml(mt, meal, mealDrinks,
+      { addItem: `data-add-item="${mt.key}"`, addDrink: `data-add-drink="${mt.key}"` });
   }
+
+  // Encas — un par prise, chacun avec sa propre heure
+  const encasMeta = mealMeta("encas");
+  const encasMeals = day.meals
+    .filter(m => m.meal_type === "encas" &&
+      ((m.meal_items && m.meal_items.length) || day.drinks.some(d => d.meal_id === m.id)))
+    .sort((a, b) => (a.meal_time || "").localeCompare(b.meal_time || ""));
+  html += `<div class="section-title" style="margin-top:6px">${encasMeta.emoji} Encas <span class="count">${encasMeals.length}</span></div>`;
+  for (const meal of encasMeals) {
+    const mealDrinks = day.drinks.filter(d => d.meal_id === meal.id);
+    html += mealCardHtml(encasMeta, meal, mealDrinks,
+      { addItem: `data-add-item-meal="${meal.id}"`, addDrink: `data-add-drink-meal="${meal.id}"` });
+  }
+  html += `<button class="btn btn-soft btn-block" data-add-encas style="margin-bottom:16px">${encasMeta.emoji} + Ajouter un encas</button>`;
 
   // Boissons libres (hors repas)
   const freeDrinks = day.drinks.filter(d => !d.meal_id);
@@ -331,6 +297,54 @@ async function renderJournee() {
 }
 
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+/* Rendu d'une carte de repas (repas principal OU encas).
+   opts.addItem / opts.addDrink = attributs data-* des boutons d'ajout. */
+function mealCardHtml(mt, meal, mealDrinks, opts = {}) {
+  const items = meal?.meal_items || [];
+  const timeHtml = meal
+    ? `🕐 <input type="time" value="${meal.meal_time || ""}" data-meal-time="${meal.id}">`
+    : `<span class="muted">non renseigné</span>`;
+  let h = `<div class="meal-card">
+    <div class="meal-card-head">
+      <div class="meal-title">
+        <span class="meal-emoji ${mt.bg}">${mt.emoji}</span>
+        <div>${mt.label}<div class="meal-time">${timeHtml}</div></div>
+      </div>
+      <button class="btn btn-soft btn-sm" ${opts.addItem || ""}>+ Aliment</button>
+    </div>`;
+  if (items.length) {
+    h += `<ul class="item-list">` + items.map(it => {
+      const name = it.products?.name || it.custom_name || "Aliment";
+      const emo = it.products?.emoji || "🍴";
+      const qty = it.quantity_kind === "nombre" ? `× ${it.quantity_number ?? 1}` : cap(it.quantity_kind);
+      return `<li class="item-row">
+        <span class="item-main">${emo} ${esc(name)}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="item-qty">${qty}</span>
+          <button class="item-edit" data-edit-item="${it.id}" title="Modifier">✏️</button>
+          <button class="item-del" data-del-item="${it.id}">✕</button>
+        </span></li>`;
+    }).join("") + `</ul>`;
+  } else {
+    h += `<p class="empty-hint">Rien pour l'instant.</p>`;
+  }
+  const mealNutri = emptyNutri();
+  for (const it of items) addNutri(mealNutri, itemNutrition(it));
+  if (mealNutri.kcal > 0) {
+    h += `<div class="meal-nutri">🔥 ${r0(mealNutri.kcal)} kcal · 🍬 ${r1(mealNutri.sugar)} g · 🧈 ${r1(mealNutri.fat)} g · 🥩 ${r1(mealNutri.prot)} g prot.</div>`;
+  }
+  if (mealDrinks.length) {
+    h += `<div class="pill-row">` + mealDrinks.map(d => {
+      const dm = drinkMeta(d.drink_type);
+      return `<span class="pill">${dm.emoji} ${dm.label} · ${d.glasses} verre${d.glasses > 1 ? "s" : ""}
+        <span class="x" data-del-drink="${d.id}">✕</span></span>`;
+    }).join("") + `</div>`;
+  }
+  h += `<div class="add-line"><button class="btn btn-sm" ${opts.addDrink || ""}>🥤 Ajouter une boisson</button></div>`;
+  h += `</div>`;
+  return h;
+}
 
 /* ---------- Modale : modifier un aliment d'un repas ---------- */
 function openEditItemModal(item) {
@@ -391,8 +405,14 @@ function wireJourneeEvents() {
   const panel = el("tab-journee");
   panel.querySelectorAll("[data-add-item]").forEach(b =>
     b.onclick = () => openAddItemModal(b.dataset.addItem));
+  panel.querySelectorAll("[data-add-item-meal]").forEach(b =>
+    b.onclick = () => openAddItemModal("encas", { mealId: b.dataset.addItemMeal }));
+  const encasBtn = panel.querySelector("[data-add-encas]");
+  if (encasBtn) encasBtn.onclick = () => openAddItemModal("encas", { forceNew: true });
   panel.querySelectorAll("[data-add-drink]").forEach(b =>
     b.onclick = () => openAddDrinkModal(b.dataset.addDrink));
+  panel.querySelectorAll("[data-add-drink-meal]").forEach(b =>
+    b.onclick = () => openAddDrinkModal(null, { mealId: b.dataset.addDrinkMeal }));
   panel.querySelectorAll("[data-del-item]").forEach(b =>
     b.onclick = () => delRow("meal_items", b.dataset.delItem));
   panel.querySelectorAll("[data-del-drink]").forEach(b =>
@@ -415,11 +435,14 @@ async function delRow(table, id) {
   renderJournee();
 }
 
-/* ---------- Récupère (ou crée) le repas du jour ---------- */
-async function ensureMeal(mealTypeKey) {
-  const { data: existing } = await supabase.from("meals")
-    .select("id").eq("meal_date", state.date).eq("meal_type", mealTypeKey).maybeSingle();
-  if (existing) return existing.id;
+/* ---------- Récupère (ou crée) le repas du jour ----------
+   forceNew=true crée toujours un nouveau repas (utile pour les encas). */
+async function ensureMeal(mealTypeKey, forceNew = false) {
+  if (!forceNew) {
+    const { data: existing } = await supabase.from("meals")
+      .select("id").eq("meal_date", state.date).eq("meal_type", mealTypeKey).maybeSingle();
+    if (existing) return existing.id;
+  }
   const meta = mealMeta(mealTypeKey);
   const { data, error } = await supabase.from("meals")
     .insert({ meal_date: state.date, meal_type: mealTypeKey, meal_time: meta.time })
@@ -431,19 +454,28 @@ async function ensureMeal(mealTypeKey) {
 /* ============================================================
    MODALE : AJOUTER UN ALIMENT
    ============================================================ */
-async function openAddItemModal(mealTypeKey) {
+async function openAddItemModal(mealTypeKey, opts = {}) {
   const meta = mealMeta(mealTypeKey);
   let activeCat = state.categories[0]?.id;
   // Sélection multiple : clé -> { product_id, name, emoji, quantity_kind, quantity_number }
   const selected = new Map();
   let customSeq = 0;
 
-  // Heure : reprend l'heure du repas s'il existe, sinon défaut (heure actuelle pour un encas)
-  const { data: existingMeal } = await supabase.from("meals")
-    .select("meal_time").eq("meal_date", state.date).eq("meal_type", mealTypeKey).maybeSingle();
-  const defaultTime = existingMeal?.meal_time
-    ? existingMeal.meal_time.slice(0, 5)
-    : (mealTypeKey === "encas" ? new Date().toTimeString().slice(0, 5) : meta.time);
+  // Heure par défaut selon le contexte (encas existant, nouvel encas, ou repas principal)
+  const nowTime = () => new Date().toTimeString().slice(0, 5);
+  let defaultTime;
+  if (opts.mealId) {
+    const { data: m } = await supabase.from("meals").select("meal_time").eq("id", opts.mealId).maybeSingle();
+    defaultTime = m?.meal_time ? m.meal_time.slice(0, 5) : (mealTypeKey === "encas" ? nowTime() : meta.time);
+  } else if (opts.forceNew) {
+    defaultTime = nowTime();
+  } else {
+    const { data: existingMeal } = await supabase.from("meals")
+      .select("meal_time").eq("meal_date", state.date).eq("meal_type", mealTypeKey).maybeSingle();
+    defaultTime = existingMeal?.meal_time
+      ? existingMeal.meal_time.slice(0, 5)
+      : (mealTypeKey === "encas" ? nowTime() : meta.time);
+  }
 
   const overlay = openModal(`
     <div class="modal-head"><h2>${meta.emoji} ${meta.label} · aliments</h2>
@@ -583,7 +615,7 @@ async function openAddItemModal(mealTypeKey) {
     if (!entries.length) return;
     saveBtn.disabled = true;
     try {
-      const mealId = await ensureMeal(mealTypeKey);
+      const mealId = opts.mealId || await ensureMeal(mealTypeKey, opts.forceNew);
       // Enregistre l'heure de prise indiquée
       const t = overlay.querySelector("#item-time").value;
       if (t) await supabase.from("meals").update({ meal_time: t }).eq("id", mealId);
@@ -606,7 +638,7 @@ async function openAddItemModal(mealTypeKey) {
 /* ============================================================
    MODALE : AJOUTER UNE BOISSON
    ============================================================ */
-function openAddDrinkModal(mealTypeKey) {
+function openAddDrinkModal(mealTypeKey, opts = {}) {
   let type = "eau", glasses = 1;
   const overlay = openModal(`
     <div class="modal-head"><h2>🥤 Boisson</h2><button class="modal-close">✕</button></div>
@@ -628,7 +660,7 @@ function openAddDrinkModal(mealTypeKey) {
   overlay.querySelector("#save-drink").onclick = async () => {
     glasses = Number(overlay.querySelector("#glasses").value || 1);
     try {
-      const mealId = mealTypeKey ? await ensureMeal(mealTypeKey) : null;
+      const mealId = opts.mealId ? opts.mealId : (mealTypeKey ? await ensureMeal(mealTypeKey) : null);
       const { error } = await supabase.from("drinks")
         .insert({ meal_id: mealId, log_date: state.date, drink_type: type, glasses });
       if (error) throw error;

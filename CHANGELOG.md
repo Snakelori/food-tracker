@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.4.1] — 2026-07-28
+### Ajouté
+- **Plusieurs encas par jour**, chacun avec **sa propre heure** de prise : bouton
+  « + Ajouter un encas » ; chaque encas a sa carte (aliments, boisson, totaux nutritionnels).
+
 ## [2.4.0] — 2026-07-28
 ### Ajouté — Suivi du poids & objectifs
 - Carte **⚖️ Poids & objectif** en tête de l'onglet Analyses : poids actuel, **objectif**,
