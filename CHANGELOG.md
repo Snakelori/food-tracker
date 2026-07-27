@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.4] — 2026-07-27
+### Ajouté
+- **Recherche d'aliments** dans le sélecteur : tapez un nom pour trouver un produit dans
+  **toutes les catégories** (avec son libellé de catégorie), en plus de la navigation par onglets.
+### Enrichi
+- Catégorie **Salades** : +16 types (salade d'endives, tomates-mozzarella, pois chiches,
+  crudités, chou rouge, surimi, fruits de mer…). À charger via `supabase/produits-salades-2.sql`.
+
 ## [2.3.3] — 2026-07-27
 ### Enrichi
 - Nouvelle catégorie **🧁 Gâteaux & goûter** : 32 classiques (madeleines nature/chocolat/citron/miel,

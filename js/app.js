@@ -388,7 +388,8 @@ async function openAddItemModal(mealTypeKey) {
       <button class="modal-close">✕</button></div>
     <div class="field time-field"><label>🕐 Heure de prise</label>
       <input type="time" id="item-time" value="${defaultTime}"></div>
-    <p class="pick-hint">Touchez les aliments pour en choisir <b>plusieurs</b> (même dans différentes catégories).</p>
+    <p class="pick-hint">Touchez les aliments pour en choisir <b>plusieurs</b> (recherche ou navigation par catégorie).</p>
+    <input type="text" id="prod-search" class="prod-search" placeholder="🔍 Rechercher un aliment (toutes catégories)…" />
     <div class="cat-tabs" id="cat-tabs"></div>
     <div class="product-grid" id="product-grid"></div>
     <div class="field" style="margin-top:8px"><label>… ou ajouter un aliment libre</label>
@@ -406,24 +407,36 @@ async function openAddItemModal(mealTypeKey) {
   const tray = overlay.querySelector("#tray");
   const customInput = overlay.querySelector("#custom-name");
   const saveBtn = overlay.querySelector("#save-item");
+  const searchInput = overlay.querySelector("#prod-search");
 
-  // Index de tous les produits par id (pour retrouver la nutrition au clic)
+  // Index de tous les produits (pour la nutrition au clic + la recherche globale)
   const prodById = new Map();
-  for (const c of state.categories) for (const p of (state.productsByCat[c.id] || [])) prodById.set(p.id, p);
+  const allProducts = [];
+  const catName = id => state.categories.find(c => c.id === id)?.name || "";
+  for (const c of state.categories) for (const p of (state.productsByCat[c.id] || [])) {
+    prodById.set(p.id, p);
+    allProducts.push({ ...p, _cat: c.name });
+  }
 
   catTabs.innerHTML = state.categories.map(c =>
     `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
 
   function renderProducts() {
-    const list = state.productsByCat[activeCat] || [];
+    const q = searchInput.value.trim().toLowerCase();
+    const searching = q.length > 0;
+    catTabs.style.display = searching ? "none" : "";           // masque les onglets pendant la recherche
+    const list = searching
+      ? allProducts.filter(p => p.name.toLowerCase().includes(q)).slice(0, 60)
+      : (state.productsByCat[activeCat] || []);
     grid.innerHTML = list.length ? list.map(p => {
       const kc = portionKcal(p);
       return `<button class="product-btn ${selected.has(p.id) ? "selected" : ""}" data-prod="${p.id}">
         <span class="pe">${p.emoji || "🍴"}</span>${esc(p.name)}
+        ${searching && p._cat ? `<span class="pcat">${esc(p._cat)}</span>` : ""}
         ${kc != null ? `<span class="pkcal">${kc} kcal</span>` : ""}
         ${selected.has(p.id) ? '<span class="pick-check">✓</span>' : ""}</button>`;
     }).join("")
-      : `<p class="empty-hint">Aucun produit. Ajoutez-en dans Réglages.</p>`;
+      : `<p class="empty-hint">${searching ? "Aucun aliment trouvé pour « " + esc(q) + " »." : "Aucun produit. Ajoutez-en dans Réglages."}</p>`;
     grid.querySelectorAll("[data-prod]").forEach(b => b.onclick = () => {
       const id = b.dataset.prod;
       if (selected.has(id)) selected.delete(id);
@@ -482,8 +495,11 @@ async function openAddItemModal(mealTypeKey) {
   renderProducts();
   renderTray();
 
+  searchInput.oninput = renderProducts;
+
   catTabs.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => {
     activeCat = b.dataset.cat;
+    searchInput.value = "";                     // choisir une catégorie annule la recherche
     catTabs.querySelectorAll(".cat-tab").forEach(x => x.classList.remove("active"));
     b.classList.add("active");
     renderProducts();

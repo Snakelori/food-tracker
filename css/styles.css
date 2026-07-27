@@ -402,6 +402,14 @@ body {
 }
 .product-btn .pe { font-size: 24px; }
 .product-btn .pkcal { font-size: 10.5px; color: var(--ink-soft); font-weight: 600; margin-top: 1px; }
+.product-btn .pcat { font-size: 9.5px; color: var(--green-deep); background: var(--green-soft); border-radius: 8px; padding: 1px 6px; margin-top: 2px; }
+
+/* Recherche d'aliment dans le sélecteur */
+.prod-search {
+  width: 100%; font-family: inherit; font-size: 15px; margin-bottom: 10px;
+  padding: 11px 13px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: #fbfdfc;
+}
+.prod-search:focus { outline: none; border-color: var(--green); background: #fff; }
 .product-btn:active { transform: scale(.95); }
 .product-btn.selected { border-color: var(--green); background: var(--green-soft); }
 .product-btn { position: relative; }
