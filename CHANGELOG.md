@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.5] — 2026-07-28
+### Enrichi
+- Nouvelle catégorie **🍢 Brochettes & grillades** : 26 brochettes (poulet, bœuf, canard,
+  magret, agneau, porc, merguez, saumon, crevettes, halloumi, légumes, chich taouk,
+  souvlaki…) avec valeurs nutritionnelles. À charger via `supabase/produits-brochettes.sql`.
+
 ## [2.3.4] — 2026-07-27
 ### Ajouté
 - **Recherche d'aliments** dans le sélecteur : tapez un nom pour trouver un produit dans
