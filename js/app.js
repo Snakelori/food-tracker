@@ -269,6 +269,7 @@ async function renderJournee() {
           <span class="item-main">${emo} ${esc(name)}</span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="item-qty">${qty}</span>
+            <button class="item-edit" data-edit-item="${it.id}" title="Modifier">✏️</button>
             <button class="item-del" data-del-item="${it.id}">✕</button>
           </span></li>`;
       }).join("") + `</ul>`;
@@ -321,9 +322,70 @@ async function renderJournee() {
 
   panel.innerHTML = html;
   wireJourneeEvents();
+
+  // Édition d'un aliment déjà saisi (quantité)
+  const itemsById = {};
+  for (const m of day.meals) for (const it of (m.meal_items || [])) itemsById[it.id] = it;
+  panel.querySelectorAll("[data-edit-item]").forEach(b =>
+    b.onclick = () => openEditItemModal(itemsById[b.dataset.editItem]));
 }
 
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+/* ---------- Modale : modifier un aliment d'un repas ---------- */
+function openEditItemModal(item) {
+  if (!item) return;
+  const name = item.products?.name || item.custom_name || "Aliment";
+  const emoji = item.products?.emoji || "🍴";
+  let kind = item.quantity_kind, number = item.quantity_number;
+
+  const overlay = openModal(`
+    <div class="modal-head"><h2>✏️ ${emoji} ${esc(name)}</h2><button class="modal-close">✕</button></div>
+    <div class="field"><label>Quantité</label>
+      <div class="qty-grid" id="e-qty"></div>
+      <input type="number" id="e-num" placeholder="Nombre (ex : 2)" step="0.5" min="0"
+        value="${number ?? ""}" style="margin-top:8px;${kind === "nombre" ? "" : "display:none"}">
+    </div>
+    <div id="e-nutri" class="tray-nutri" style="margin-bottom:14px"></div>
+    <button class="btn btn-primary btn-block" id="e-save">Enregistrer</button>
+    <button class="btn btn-danger btn-block" id="e-del" style="margin-top:8px">🗑️ Retirer du repas</button>
+  `);
+  const qtyGrid = overlay.querySelector("#e-qty");
+  const numInput = overlay.querySelector("#e-num");
+  const nutriEl = overlay.querySelector("#e-nutri");
+  qtyGrid.innerHTML = QTY_KINDS.map(q =>
+    `<button class="qty-opt ${q.key === kind ? "selected" : ""}" data-q="${q.key}">${q.label}</button>`).join("");
+
+  const refreshNutri = () => {
+    const n = item.products ? nutriFromProduct(item.products, kind, number) : null;
+    nutriEl.innerHTML = n ? `🔥 ${r0(n.kcal)} kcal · 🍬 ${r1(n.sugar)} g · 🧈 ${r1(n.fat)} g` : "";
+  };
+  refreshNutri();
+
+  qtyGrid.querySelectorAll("[data-q]").forEach(b => b.onclick = () => {
+    kind = b.dataset.q;
+    qtyGrid.querySelectorAll(".qty-opt").forEach(x => x.classList.remove("selected"));
+    b.classList.add("selected");
+    numInput.style.display = kind === "nombre" ? "" : "none";
+    refreshNutri();
+  });
+  numInput.oninput = () => { number = numInput.value ? Number(numInput.value) : null; refreshNutri(); };
+  overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
+
+  overlay.querySelector("#e-save").onclick = async () => {
+    const { error } = await supabase.from("meal_items").update({
+      quantity_kind: kind,
+      quantity_number: kind === "nombre" ? (number || 1) : null,
+    }).eq("id", item.id);
+    if (error) return toast("Erreur : " + error.message, "err");
+    closeModal(overlay); toast("Aliment modifié", "ok"); renderJournee();
+  };
+  overlay.querySelector("#e-del").onclick = async () => {
+    const { error } = await supabase.from("meal_items").delete().eq("id", item.id);
+    if (error) return toast("Erreur : " + error.message, "err");
+    closeModal(overlay); toast("Supprimé"); renderJournee();
+  };
+}
 
 function wireJourneeEvents() {
   const panel = el("tab-journee");

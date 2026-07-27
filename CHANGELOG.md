@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.6] — 2026-07-28
+### Ajouté
+- **Modifier un aliment déjà saisi** dans un repas : bouton ✏️ sur chaque aliment pour
+  changer sa **quantité** (avec aperçu nutritionnel en direct) ou le retirer.
+
 ## [2.3.5] — 2026-07-28
 ### Enrichi
 - Nouvelle catégorie **🍢 Brochettes & grillades** : 26 brochettes (poulet, bœuf, canard,
