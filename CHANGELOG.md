@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.3] — 2026-07-27
+### Enrichi
+- Nouvelle catégorie **🧁 Gâteaux & goûter** : 32 classiques (madeleines nature/chocolat/citron/miel,
+  quatre-quarts, financiers, marbré, cakes, kouign-amann, cannelé, far breton, pain d'épices…)
+  avec valeurs nutritionnelles. À charger via `supabase/produits-gateaux.sql`.
+
 ## [2.3.2] — 2026-07-27
 ### Corrigé
 - **Bug de date** : la nuit (après minuit), l'application affichait la veille comme
