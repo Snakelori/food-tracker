@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.3.7] — 2026-07-28
+### Enrichi
+- 5 nouvelles catégories : **🥨 Apéritif** (cacahuètes, biscuits apéro, saucisson…),
+  **🥐 Viennoiseries**, **☕ Boissons chaudes** (cafés, thés, chocolat chaud…),
+  **🍫 Confiserie & chocolats** et **🍹 Cocktails & alcools** — ~86 produits avec valeurs
+  nutritionnelles. À charger via `supabase/produits-apero-boissons-confiserie.sql`.
+
 ## [2.3.6] — 2026-07-28
 ### Ajouté
 - **Modifier un aliment déjà saisi** dans un repas : bouton ✏️ sur chaque aliment pour
