@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.4.4] — 2026-08-06
+### Enrichi
+- Nouvelle catégorie **🐟 Poissons & fruits de mer** : ~60 produits **panés et non panés**
+  (saumon, cabillaud, thon, sardine, sole, dorade, bar, saumon fumé, poisson pané, bâtonnets,
+  nuggets, fish & chips, calamars/crevettes panés…) + fruits de mer (moules, huîtres,
+  Saint-Jacques, crevettes, calamars, crabe, homard, surimi…). À charger via
+  `supabase/produits-poissons.sql`.
+
 ## [2.4.3] — 2026-08-06
 ### Corrigé
 - **Recherche d'aliments insensible aux accents** : taper « roti », « puree » ou « rosti »
