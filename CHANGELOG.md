@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.4.2] — 2026-08-06
+### Enrichi
+- **Rôtis** (catégorie Protéines) : rôti de porc, porc Orloff, bœuf, rosbif, veau, dinde,
+  poulet, agneau (gigot), canard, filet mignon rôti… avec valeurs nutritionnelles.
+- **Plats à base de pomme de terre** (catégorie Féculents) : pommes dauphine, noisettes,
+  duchesse, sautées, rissolées, vapeur, au four, grenaille, allumettes, potatoes/wedges,
+  croquettes, rösti, galette, gratin dauphinois, boulangère, aligot, tartiflette, hachis
+  parmentier, purée, frites au four. À charger via `supabase/produits-rotis-pdt.sql`.
+
 ## [2.4.1] — 2026-07-28
 ### Ajouté
 - **Plusieurs encas par jour**, chacun avec **sa propre heure** de prise : bouton
