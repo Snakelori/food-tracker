@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.4.3] — 2026-08-06
+### Corrigé
+- **Recherche d'aliments insensible aux accents** : taper « roti », « puree » ou « rosti »
+  trouve désormais « Rôti », « Purée », « Rösti »… (dans le sélecteur d'aliment et le
+  gestionnaire de produits).
+
 ## [2.4.2] — 2026-08-06
 ### Enrichi
 - **Rôtis** (catégorie Protéines) : rôti de porc, porc Orloff, bœuf, rosbif, veau, dinde,

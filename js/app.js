@@ -515,12 +515,13 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
   catTabs.innerHTML = state.categories.map(c =>
     `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
 
+  const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   function renderProducts() {
-    const q = searchInput.value.trim().toLowerCase();
+    const q = norm(searchInput.value.trim());
     const searching = q.length > 0;
     catTabs.style.display = searching ? "none" : "";           // masque les onglets pendant la recherche
     const list = searching
-      ? allProducts.filter(p => p.name.toLowerCase().includes(q)).slice(0, 60)
+      ? allProducts.filter(p => norm(p.name).includes(q)).slice(0, 60)
       : (state.productsByCat[activeCat] || []);
     grid.innerHTML = list.length ? list.map(p => {
       const kc = portionKcal(p);
@@ -1595,9 +1596,10 @@ async function openProductManager() {
   }
   productManagerRefresh = load;
 
+  const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   function render() {
-    const q = search.value.trim().toLowerCase();
-    const rows = all.filter(p => !q || p.name.toLowerCase().includes(q));
+    const q = norm(search.value.trim());
+    const rows = all.filter(p => !q || norm(p.name).includes(q));
     if (!rows.length) { listEl.innerHTML = `<p class="empty-hint">Aucun produit trouvé.</p>`; return; }
     const byCat = {};
     for (const p of rows) { const cn = p.categories?.name || "Autres"; (byCat[cn] ??= []).push(p); }
