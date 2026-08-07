@@ -56,11 +56,22 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Nettoyer les secrets (espaces / sauts de ligne collés par erreur)
+          BOT="$(printf '%s' "$BOT" | tr -d '[:space:]')"
+          CHAT="$(printf '%s' "$CHAT" | tr -d '[:space:]')"
+          # Tolérer un token collé avec le préfixe "bot"
+          BOT="${BOT#bot}"
+
           send() {  # $1 = texte
-            curl -sS -X POST "https://api.telegram.org/bot${BOT}/sendMessage" \
+            RESP="$(curl -sS -X POST "https://api.telegram.org/bot${BOT}/sendMessage" \
               -d chat_id="${CHAT}" \
               -d disable_web_page_preview=false \
-              --data-urlencode text="$1" >/dev/null
+              --data-urlencode text="$1")"
+            echo "Réponse Telegram : ${RESP}"
+            case "$RESP" in
+              *'"ok":true'*) echo "Message envoyé ✅" ;;
+              *) echo "::error::Telegram a refusé l'envoi (voir la réponse ci-dessus : token ou chat_id invalide, ou /start non fait)."; exit 1 ;;
+            esac
           }
 
           # --- Mode TEST manuel : envoie tout de suite, sans rien vérifier ---
