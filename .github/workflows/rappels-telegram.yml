@@ -1,0 +1,101 @@
+name: Rappels de saisie (Telegram)
+
+# Rappels INTELLIGENTS : n'envoient un message que si le repas
+# n'a PAS encore été saisi ce jour-là.
+#
+# Heures de rappel (Europe/Paris) : petit-déj 09:30, déjeuner 13:45, dîner 20:45.
+# Les crons sont en UTC et doublés pour rester justes été (CEST) comme hiver (CET) :
+# le script ne déclenche que si l'heure de Paris correspond au bon créneau.
+on:
+  schedule:
+    - cron: "30 7,8 * * *"    # -> 09:30 Paris (petit-déjeuner)
+    - cron: "45 11,12 * * *"  # -> 13:45 Paris (déjeuner)
+    - cron: "45 18,19 * * *"  # -> 20:45 Paris (dîner)
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Envoyer un message de TEST tout de suite (ignore l'heure et la vérification)"
+        type: boolean
+        default: false
+
+jobs:
+  rappel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier les secrets
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          BOT: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MISS=0
+          if [ -z "$DB" ];   then echo "::warning::Secret SUPABASE_DB_URL MANQUANT";   MISS=1; else echo "SUPABASE_DB_URL : présent ✔"; fi
+          if [ -z "$BOT" ];  then echo "::warning::Secret TELEGRAM_BOT_TOKEN MANQUANT"; MISS=1; else echo "TELEGRAM_BOT_TOKEN : présent ✔"; fi
+          if [ -z "$CHAT" ]; then echo "::warning::Secret TELEGRAM_CHAT_ID MANQUANT";   MISS=1; else echo "TELEGRAM_CHAT_ID : présent ✔"; fi
+          if [ "$MISS" = "1" ]; then
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "::warning::Rappel ignoré — voir docs/RAPPELS-TELEGRAM.md."
+          fi
+
+      - name: Installer le client PostgreSQL 17
+        if: env.SKIP != '1'
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Envoyer le rappel si le repas n'est pas saisi
+        if: env.SKIP != '1'
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          BOT: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEST: ${{ github.event.inputs.test }}
+          APP_URL: "https://food-tracker-gilt-three.vercel.app/"
+        run: |
+          set -euo pipefail
+
+          send() {  # $1 = texte
+            curl -sS -X POST "https://api.telegram.org/bot${BOT}/sendMessage" \
+              -d chat_id="${CHAT}" \
+              -d disable_web_page_preview=false \
+              --data-urlencode text="$1" >/dev/null
+          }
+
+          # --- Mode TEST manuel : envoie tout de suite, sans rien vérifier ---
+          if [ "${TEST:-false}" = "true" ]; then
+            send "✅ Test OK — les rappels Telegram de ton Journal Alimentaire fonctionnent ! 🥗"
+            echo "Message de test envoyé."
+            exit 0
+          fi
+
+          # --- Déterminer le créneau d'après l'heure de Paris (DST-safe) ---
+          PARIS_H=$(TZ="Europe/Paris" date +%H)
+          PARIS_H=$((10#$PARIS_H))   # force la base 10 (évite 08/09 interprétés en octal)
+          case "$PARIS_H" in
+            9)  MEAL="petit_dejeuner"; LABEL="petit-déjeuner 🥐" ;;
+            13) MEAL="dejeuner";       LABEL="déjeuner 🍽️" ;;
+            20) MEAL="diner";          LABEL="dîner 🌙" ;;
+            *)  echo "Hors créneau de rappel (Paris ${PARIS_H}h) — rien à faire."; exit 0 ;;
+          esac
+
+          TODAY=$(TZ="Europe/Paris" date +%F)
+
+          # Repas déjà saisi aujourd'hui ? (au moins un aliment)
+          # App mono-utilisateur : pas de filtre user_id nécessaire.
+          COUNT=$(psql "$DB" -tAc \
+            "select count(*) from public.meals m
+             join public.meal_items mi on mi.meal_id = m.id
+             where m.meal_date = '${TODAY}' and m.meal_type = '${MEAL}';")
+          COUNT=$(printf '%s' "$COUNT" | tr -d '[:space:]')
+
+          echo "Créneau=${MEAL} (Paris ${PARIS_H}h) | date=${TODAY} | aliments saisis=${COUNT}"
+
+          if [ "${COUNT:-0}" -eq 0 ]; then
+            MSG="⏰ Rappel — Journal Alimentaire"$'\n'"Tu n'as pas encore saisi ton ${LABEL} aujourd'hui."$'\n'"👉 ${APP_URL}"
+            send "$MSG"
+            echo "Rappel envoyé ✅"
+          else
+            echo "Déjà saisi (${COUNT} aliment(s)) — pas de rappel."
+          fi

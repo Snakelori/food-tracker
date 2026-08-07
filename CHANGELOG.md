@@ -3,6 +3,16 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.5.0] — 2026-08-06
+### Ajouté — Rappels de saisie par Telegram
+- **Rappels intelligents** : un message Telegram est envoyé **seulement si** le repas
+  n'a pas encore été saisi (petit-déj 09h30, déjeuner 13h45, dîner 20h45, heure de Paris).
+- Automatisé via GitHub Actions (`.github/workflows/rappels-telegram.yml`), en réutilisant
+  le secret `SUPABASE_DB_URL` déjà en place. DST-safe (été/hiver).
+- Bouton **« Run workflow » (test)** pour vérifier l'envoi immédiatement.
+- Guide d'installation : `docs/RAPPELS-TELEGRAM.md` (créer le bot, récupérer le chat_id,
+  ajouter les secrets `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID`).
+
 ## [2.4.4] — 2026-08-06
 ### Enrichi
 - Nouvelle catégorie **🐟 Poissons & fruits de mer** : ~60 produits **panés et non panés**
