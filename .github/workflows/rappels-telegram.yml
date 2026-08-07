@@ -1,16 +1,14 @@
 name: Rappels de saisie (Telegram)
 
-# Rappels INTELLIGENTS : n'envoient un message que si le repas
-# n'a PAS encore été saisi ce jour-là.
-#
-# Heures de rappel (Europe/Paris) : petit-déj 09:30, déjeuner 13:45, dîner 20:45.
-# Les crons sont en UTC et doublés pour rester justes été (CEST) comme hiver (CET) :
-# le script ne déclenche que si l'heure de Paris correspond au bon créneau.
+# Les rappels sont désormais CONFIGURABLES depuis l'app (Réglages → 🔔 Rappels),
+# stockés dans la table public.reminders. Ce workflow tourne toutes les 15 min,
+# lit les rappels dus (heure de Paris) et envoie ceux qui doivent l'être.
+# « Intelligent » = envoyé seulement si le repas n'est pas déjà saisi
+# (ou, pour la pesée, si aucune pesée cette semaine). Une garde (last_sent_on)
+# évite les doublons : chaque rappel part au plus une fois par jour.
 on:
   schedule:
-    - cron: "30 7,8 * * *"    # -> 09:30 Paris (petit-déjeuner)
-    - cron: "45 11,12 * * *"  # -> 13:45 Paris (déjeuner)
-    - cron: "45 18,19 * * *"  # -> 20:45 Paris (dîner)
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       test:
@@ -37,15 +35,15 @@ jobs:
             echo "::warning::Rappel ignoré — voir docs/RAPPELS-TELEGRAM.md."
           fi
 
-      - name: Installer le client PostgreSQL 17
+      - name: S'assurer que psql est disponible
         if: env.SKIP != '1'
         run: |
-          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          fi
+          psql --version
 
-      - name: Envoyer le rappel si le repas n'est pas saisi
+      - name: Envoyer les rappels dus
         if: env.SKIP != '1'
         env:
           DB: ${{ secrets.SUPABASE_DB_URL }}
@@ -57,56 +55,71 @@ jobs:
           set -euo pipefail
 
           # Nettoyer les secrets (espaces / sauts de ligne collés par erreur)
-          BOT="$(printf '%s' "$BOT" | tr -d '[:space:]')"
+          BOT="$(printf '%s' "$BOT" | tr -d '[:space:]')"; BOT="${BOT#bot}"
           CHAT="$(printf '%s' "$CHAT" | tr -d '[:space:]')"
-          # Tolérer un token collé avec le préfixe "bot"
-          BOT="${BOT#bot}"
 
-          send() {  # $1 = texte
+          send() {  # $1 = texte ; retourne 0 si Telegram accepte
             RESP="$(curl -sS -X POST "https://api.telegram.org/bot${BOT}/sendMessage" \
-              -d chat_id="${CHAT}" \
-              -d disable_web_page_preview=false \
-              --data-urlencode text="$1")"
-            echo "Réponse Telegram : ${RESP}"
+              -d chat_id="${CHAT}" --data-urlencode text="$1")"
             case "$RESP" in
-              *'"ok":true'*) echo "Message envoyé ✅" ;;
-              *) echo "::error::Telegram a refusé l'envoi (voir la réponse ci-dessus : token ou chat_id invalide, ou /start non fait)."; exit 1 ;;
+              *'"ok":true'*) echo "  → envoyé ✅"; return 0 ;;
+              *) echo "::error::Telegram a refusé : ${RESP}"; return 1 ;;
             esac
           }
 
-          # --- Mode TEST manuel : envoie tout de suite, sans rien vérifier ---
+          # --- Mode TEST manuel ---
           if [ "${TEST:-false}" = "true" ]; then
-            send "✅ Test OK — les rappels Telegram de ton Journal Alimentaire fonctionnent ! 🥗"
-            echo "Message de test envoyé."
+            send "✅ Test OK — les rappels Telegram de ton Journal Alimentaire fonctionnent ! 🥗" || exit 1
             exit 0
           fi
 
-          # --- Déterminer le créneau d'après l'heure de Paris (DST-safe) ---
-          PARIS_H=$(TZ="Europe/Paris" date +%H)
-          PARIS_H=$((10#$PARIS_H))   # force la base 10 (évite 08/09 interprétés en octal)
-          case "$PARIS_H" in
-            9)  MEAL="petit_dejeuner"; LABEL="petit-déjeuner 🥐" ;;
-            13) MEAL="dejeuner";       LABEL="déjeuner 🍽️" ;;
-            20) MEAL="diner";          LABEL="dîner 🌙" ;;
-            *)  echo "Hors créneau de rappel (Paris ${PARIS_H}h) — rien à faire."; exit 0 ;;
-          esac
+          # --- Récupérer les rappels DUS (tout calculé côté Postgres, heure de Paris) ---
+          QUERY="
+          with ctx as (
+            select timezone('Europe/Paris', now()) as ts,
+                   (timezone('Europe/Paris', now()))::date as d,
+                   (timezone('Europe/Paris', now()))::time as t,
+                   extract(dow from timezone('Europe/Paris', now()))::int as dow
+          )
+          select r.id, replace(
+            coalesce(nullif(r.message,''),
+              case r.kind
+                when 'poids'  then coalesce(r.emoji,'⚖️') || ' Rappel — pense à te peser cette semaine !'
+                when 'encas'  then coalesce(r.emoji,'🍎') || ' Rappel — pense à noter ton encas si tu en as pris.'
+                when 'custom' then coalesce(r.emoji,'⏰') || ' ' || coalesce(r.label,'Rappel')
+                else '⏰ Rappel — tu n''as pas encore saisi ton ' || coalesce(r.label, r.kind) || ' aujourd''hui.'
+              end), chr(9), ' ')
+          from public.reminders r, ctx
+          where r.enabled
+            and (r.weekday is null or r.weekday = ctx.dow)
+            and ctx.t >= r.at_time
+            and (r.last_sent_on is distinct from ctx.d)
+            and (
+              not r.smart
+              or (r.kind in ('petit_dejeuner','dejeuner','diner','encas') and not exists (
+                    select 1 from public.meals m join public.meal_items mi on mi.meal_id = m.id
+                    where m.user_id = r.user_id and m.meal_date = ctx.d and m.meal_type = r.kind))
+              or (r.kind = 'poids' and not exists (
+                    select 1 from public.weights w
+                    where w.user_id = r.user_id and w.log_date >= date_trunc('week', ctx.ts)::date))
+              or (r.kind = 'custom')
+            );
+          "
 
-          TODAY=$(TZ="Europe/Paris" date +%F)
+          DUE="$(psql "$DB" -tA -F $'\t' -c "$QUERY")"
 
-          # Repas déjà saisi aujourd'hui ? (au moins un aliment)
-          # App mono-utilisateur : pas de filtre user_id nécessaire.
-          COUNT=$(psql "$DB" -tAc \
-            "select count(*) from public.meals m
-             join public.meal_items mi on mi.meal_id = m.id
-             where m.meal_date = '${TODAY}' and m.meal_type = '${MEAL}';")
-          COUNT=$(printf '%s' "$COUNT" | tr -d '[:space:]')
-
-          echo "Créneau=${MEAL} (Paris ${PARIS_H}h) | date=${TODAY} | aliments saisis=${COUNT}"
-
-          if [ "${COUNT:-0}" -eq 0 ]; then
-            MSG="⏰ Rappel — Journal Alimentaire"$'\n'"Tu n'as pas encore saisi ton ${LABEL} aujourd'hui."$'\n'"👉 ${APP_URL}"
-            send "$MSG"
-            echo "Rappel envoyé ✅"
-          else
-            echo "Déjà saisi (${COUNT} aliment(s)) — pas de rappel."
+          if [ -z "$DUE" ]; then
+            echo "Aucun rappel dû pour le moment."
+            exit 0
           fi
+
+          # --- Envoyer chaque rappel dû, puis marquer l'envoi (anti-doublon) ---
+          while IFS=$'\t' read -r ID MSG; do
+            [ -z "$ID" ] && continue
+            echo "Rappel dû : ${MSG}"
+            FULL="${MSG}"$'\n'"👉 ${APP_URL}"
+            if send "$FULL"; then
+              psql "$DB" -q -c \
+                "update public.reminders set last_sent_on = (timezone('Europe/Paris', now()))::date where id = '${ID}';"
+            fi
+          done <<< "$DUE"

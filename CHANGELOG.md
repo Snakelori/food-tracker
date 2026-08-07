@@ -3,6 +3,16 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.6.0] — 2026-08-06
+### Ajouté — Rappels configurables depuis l'app
+- **Réglages → 🔔 Rappels de saisie → Gérer** : modifier l'**heure** de chaque rappel,
+  **activer/désactiver**, choisir le mode **🧠 Intelligent**, et **ajouter** des rappels.
+- Rappels **encas** et **pesée hebdomadaire** (jour + heure au choix) fournis par défaut
+  (à activer), + rappels **personnalisés**.
+- Le workflow Telegram devient **dynamique** : il lit la table `reminders` toutes les 15 min
+  et envoie les rappels dus (garde anti-doublon : un envoi max par jour et par rappel).
+- À activer via `supabase/rappels.sql` (les rappels par défaut se créent à la 1re ouverture).
+
 ## [2.5.0] — 2026-08-06
 ### Ajouté — Rappels de saisie par Telegram
 - **Rappels intelligents** : un message Telegram est envoyé **seulement si** le repas

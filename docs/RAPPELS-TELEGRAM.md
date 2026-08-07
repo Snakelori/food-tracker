@@ -1,16 +1,30 @@
 # 🔔 Rappels de saisie par Telegram
 
-Recevez un message Telegram **uniquement si vous avez oublié** de saisir un repas :
+Recevez un message Telegram pour penser à saisir vos repas / vous peser.
 
-- 🥐 Petit-déjeuner — rappel à **09h30** (heure de Paris)
-- 🍽️ Déjeuner — rappel à **13h45**
-- 🌙 Dîner — rappel à **20h45**
+Les horaires et les rappels sont **configurables directement dans l'app** :
+**Réglages → 🔔 Rappels de saisie → Gérer**. Vous pouvez :
 
-Si le repas est déjà saisi dans l'app, **aucun message** n'est envoyé.
+- changer l'**heure** de chaque rappel (petit-déj, déjeuner, dîner) ;
+- **activer** un rappel **encas** et une **pesée hebdomadaire** (jour + heure au choix) ;
+- **ajouter** vos propres rappels personnalisés ;
+- activer/désactiver chacun, et choisir le mode **🧠 Intelligent**.
 
-Le rappel est envoyé par le workflow GitHub Actions
-[`.github/workflows/rappels-telegram.yml`](../.github/workflows/rappels-telegram.yml).
+> 🧠 **Intelligent** = le message n'est envoyé **que si** le repas n'est pas déjà saisi
+> ce jour-là (ou, pour la pesée, si vous ne vous êtes pas pesé cette semaine).
+
+Techniquement : les réglages sont stockés dans la table `public.reminders` (Supabase),
+et le workflow GitHub Actions
+[`.github/workflows/rappels-telegram.yml`](../.github/workflows/rappels-telegram.yml)
+tourne **toutes les 15 min**, lit les rappels dus et envoie ceux qui doivent l'être
+(une garde anti-doublon garantit un envoi au plus par jour et par rappel).
 Il réutilise le secret `SUPABASE_DB_URL` déjà en place pour la sauvegarde de la base.
+
+## Prérequis Supabase
+
+Exécuter une fois, dans **Supabase → SQL Editor**, le script
+[`supabase/rappels.sql`](../supabase/rappels.sql) (crée la table `reminders`).
+Les rappels par défaut se créent tout seuls à la première ouverture de l'écran Rappels.
 
 ---
 
@@ -66,9 +80,9 @@ Si oui, c'est bon : les rappels intelligents s'enverront automatiquement aux heu
 
 ## Régler / changer les heures
 
-Modifiez les lignes `cron:` (en **UTC**) au début du workflow. Les créneaux sont
-doublés pour gérer le changement d'heure ; le script ne déclenche que si l'heure de
-**Paris** correspond à 9h, 13h ou 20h. Pour d'autres horaires, adaptez ces deux endroits.
+Tout se fait dans l'app : **Réglages → 🔔 Rappels de saisie → Gérer**.
+(Plus besoin de toucher au fichier du workflow.) Le workflow interroge vos réglages
+toutes les 15 min ; un rappel réglé à 09h30 part donc entre 09h30 et ~09h45.
 
 ## Dépannage
 

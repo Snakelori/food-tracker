@@ -1236,6 +1236,13 @@ async function renderReglages() {
     </div>
 
     <div class="settings-card">
+      <h3>🔔 Rappels de saisie</h3>
+      <div class="settings-row"><span class="muted">Horaires des rappels Telegram (repas, encas, pesée hebdo…)</span>
+        <button class="btn btn-soft btn-sm" id="open-reminders">Gérer</button></div>
+      <p class="muted" style="margin-top:8px">Choisissez à quelle heure recevoir un rappel, activez / désactivez chaque rappel, et ajoutez-en (encas, pesée hebdomadaire…). Les rappels « intelligents » ne sont envoyés que si le repas n'est pas encore saisi.</p>
+    </div>
+
+    <div class="settings-card">
       <h3>📝 Notes & idées</h3>
       <div class="settings-row"><span class="muted">Notes libres et idées d'amélioration (texte ou audio)</span>
         <button class="btn btn-soft btn-sm" id="open-notes">Ouvrir</button></div>
@@ -1273,11 +1280,111 @@ async function renderReglages() {
   `;
   el("logout-btn").onclick = logout;
   el("manage-products").onclick = openProductManager;
+  el("open-reminders").onclick = openRemindersManager;
   el("open-notes").onclick = openNotesManager;
   el("export-json").onclick = exportAllData;
   el("export-journal").onclick = exportJournalCSV;
   el("show-changelog").onclick = openChangelogModal;
   el("version-badge").onclick = openChangelogModal;
+}
+
+/* ============================================================
+   MODALE : RAPPELS (horaires configurables, envoyés via Telegram)
+   ============================================================ */
+const REMINDER_DAYS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const REMINDER_SMART_KINDS = ["petit_dejeuner", "dejeuner", "diner", "encas", "poids"];
+const REMINDER_DEFAULTS = [
+  { kind: "petit_dejeuner", label: "Petit-déjeuner", emoji: "🥐", at_time: "09:30", weekday: null, enabled: true,  smart: true,  sort_order: 1 },
+  { kind: "dejeuner",       label: "Déjeuner",       emoji: "🍽️", at_time: "13:30", weekday: null, enabled: true,  smart: true,  sort_order: 2 },
+  { kind: "diner",          label: "Dîner",          emoji: "🌙", at_time: "20:30", weekday: null, enabled: true,  smart: true,  sort_order: 3 },
+  { kind: "encas",          label: "Encas",          emoji: "🍎", at_time: "16:30", weekday: null, enabled: false, smart: false, sort_order: 4 },
+  { kind: "poids",          label: "Pesée hebdo",    emoji: "⚖️", at_time: "09:00", weekday: 1,    enabled: false, smart: true,  sort_order: 5 },
+];
+
+async function openRemindersManager() {
+  const overlay = openModal(`
+    <div class="modal-head"><h2>🔔 Rappels de saisie</h2><button class="modal-close">✕</button></div>
+    <p class="pick-hint">Réglez l'heure de chaque rappel, activez / désactivez, ou ajoutez-en. Les rappels arrivent sur <b>Telegram</b>.</p>
+    <div id="rem-list" class="rem-list"><p class="empty-hint">Chargement…</p></div>
+    <button class="btn btn-soft btn-block" id="rem-add" style="margin-top:10px">➕ Ajouter un rappel personnalisé</button>
+    <p class="muted" style="margin-top:12px;font-size:.85em">🧠 « Intelligent » = envoyé seulement si le repas n'est pas déjà saisi (ou, pour la pesée, si vous ne vous êtes pas pesé cette semaine). Les rappels sont vérifiés toutes les ~15 min ; un léger décalage est normal.</p>
+  `);
+  overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
+  const listEl = overlay.querySelector("#rem-list");
+
+  async function load() {
+    let { data, error } = await supabase.from("reminders").select("*").order("sort_order").order("at_time");
+    if (error) { listEl.innerHTML = `<p class="empty-hint">Erreur : ${esc(error.message)}<br><span class="muted">Avez-vous exécuté <code>supabase/rappels.sql</code> ?</span></p>`; return; }
+    if (!data || data.length === 0) {
+      // Première ouverture : créer les rappels par défaut
+      const rows = REMINDER_DEFAULTS.map(r => ({ ...r, user_id: state.user.id }));
+      const ins = await supabase.from("reminders").insert(rows).select();
+      if (ins.error) { listEl.innerHTML = `<p class="empty-hint">Erreur d'initialisation : ${esc(ins.error.message)}</p>`; return; }
+      data = ins.data;
+    }
+    render(data);
+  }
+
+  function render(rows) {
+    listEl.innerHTML = rows.map(r => {
+      const t = (r.at_time || "12:00").slice(0, 5);
+      const showSmart = REMINDER_SMART_KINDS.includes(r.kind);
+      const dayOpts = `<option value="">Tous les jours</option>` +
+        REMINDER_DAYS.map((d, i) => `<option value="${i}" ${r.weekday === i ? "selected" : ""}>${d}</option>`).join("");
+      return `<div class="rem-row ${r.enabled ? "" : "off"}" data-id="${r.id}">
+        <div class="rem-main">
+          <span class="rem-emoji">${r.emoji || "⏰"}</span>
+          <input class="rem-label" data-f="label" type="text" value="${esc(r.label || "")}" placeholder="Nom du rappel">
+          <label class="rem-switch" title="Activer / désactiver">
+            <input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""}><span></span>
+          </label>
+        </div>
+        <div class="rem-opts">
+          <label class="rem-opt">🕐 <input type="time" data-f="at_time" value="${t}"></label>
+          <label class="rem-opt">📅 <select data-f="weekday">${dayOpts}</select></label>
+          ${showSmart ? `<label class="rem-opt rem-smart"><input type="checkbox" data-f="smart" ${r.smart ? "checked" : ""}> 🧠 Intelligent</label>` : ""}
+          <button class="rem-del" data-del title="Supprimer">🗑️</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    // Câblage : chaque champ sauvegarde son propre changement
+    listEl.querySelectorAll(".rem-row").forEach(row => {
+      const id = row.dataset.id;
+      const save = async (patch) => {
+        const { error } = await supabase.from("reminders").update(patch).eq("id", id);
+        if (error) return toast("Erreur : " + error.message, "err");
+        toast("Rappel enregistré", "ok");
+      };
+      row.querySelectorAll("[data-f]").forEach(inp => {
+        inp.onchange = () => {
+          const f = inp.dataset.f;
+          let val;
+          if (f === "enabled" || f === "smart") { val = inp.checked; row.classList.toggle("off", f === "enabled" && !inp.checked); }
+          else if (f === "weekday") { val = inp.value === "" ? null : Number(inp.value); }
+          else val = inp.value;
+          save({ [f]: val });
+        };
+      });
+      row.querySelector("[data-del]").onclick = async () => {
+        if (!confirm("Supprimer ce rappel ?")) return;
+        const { error } = await supabase.from("reminders").delete().eq("id", id);
+        if (error) return toast("Erreur : " + error.message, "err");
+        toast("Rappel supprimé", "ok"); load();
+      };
+    });
+  }
+
+  overlay.querySelector("#rem-add").onclick = async () => {
+    const { error } = await supabase.from("reminders").insert({
+      user_id: state.user.id, kind: "custom", label: "Nouveau rappel", emoji: "⏰",
+      at_time: "12:00", weekday: null, enabled: true, smart: false, sort_order: 99,
+    });
+    if (error) return toast("Erreur : " + error.message, "err");
+    load();
+  };
+
+  load();
 }
 
 /* ============================================================

@@ -576,3 +576,25 @@ body {
 }
 .fab:active { transform: scale(.93); }
 @media (min-width: 720px) { .fab { right: calc(50% - 360px + 18px); } }
+
+/* ---------- Rappels (modale) ---------- */
+.rem-list { display: flex; flex-direction: column; gap: 10px; }
+.rem-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; background: #fff; transition: opacity .2s; }
+.rem-row.off { opacity: .55; }
+.rem-main { display: flex; align-items: center; gap: 8px; }
+.rem-emoji { font-size: 18px; }
+.rem-label { flex: 1; border: none; background: var(--green-soft); border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--ink); min-width: 0; }
+.rem-label:focus { outline: none; box-shadow: 0 0 0 2px var(--green); }
+.rem-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+.rem-opt { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
+.rem-opt input[type="time"], .rem-opt select { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font-family: inherit; font-size: 13px; color: var(--ink); background: #fff; }
+.rem-smart { background: var(--peach-soft); padding: 4px 10px; border-radius: 20px; color: #c96a4f; cursor: pointer; }
+.rem-del { margin-left: auto; border: none; background: none; font-size: 16px; cursor: pointer; padding: 4px; opacity: .75; }
+.rem-del:active { transform: scale(.9); }
+/* Interrupteur on/off */
+.rem-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex: none; cursor: pointer; }
+.rem-switch input { opacity: 0; width: 0; height: 0; }
+.rem-switch span { position: absolute; inset: 0; background: #d6ddda; border-radius: 24px; transition: .2s; }
+.rem-switch span::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.rem-switch input:checked + span { background: var(--green); }
+.rem-switch input:checked + span::before { transform: translateX(18px); }
