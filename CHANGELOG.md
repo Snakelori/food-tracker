@@ -3,6 +3,16 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.6.1] — 2026-08-08
+### Enrichi
+- **Légumes** : +30 variétés (artichaut, blette, chou kale/rouge/romanesco, panais,
+  topinambour, butternut, potimarron, courge spaghetti, céleri-rave, fèves, edamame,
+  pois gourmands, poivrons rouge/jaune/vert…).
+- Nouvelle catégorie **🍆 Plats de légumes** : ratatouille, farcis (courgette, tomate,
+  poivron, aubergine, chou), gratins, parmigiana, moussaka végé, poêlées, légumes grillés/
+  rôtis/vapeur, wok, curry & tajine de légumes, purées, veloutés, tempura, falafels…
+  avec valeurs nutritionnelles. À charger via `supabase/produits-legumes.sql`.
+
 ## [2.6.0] — 2026-08-06
 ### Ajouté — Rappels configurables depuis l'app
 - **Réglages → 🔔 Rappels de saisie → Gérer** : modifier l'**heure** de chaque rappel,
