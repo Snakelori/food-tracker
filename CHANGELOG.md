@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.0] — 2026-08-08
+### Ajouté — Courbes de tendance (Analyses)
+- Nouvelle carte **📈 Tendances quotidiennes** : courbes d'évolution sur les 30 derniers
+  jours avec repas —
+  **🔥 calories ingérées / jour** (avec ligne d'objectif si défini),
+  **🍎 encas / jour**, et **🍬 sucres / jour**.
+- Chaque courbe affiche la **moyenne** et la **dernière valeur**, avec aire dégradée.
+
 ## [2.6.1] — 2026-08-08
 ### Enrichi
 - **Légumes** : +30 variétés (artichaut, blette, chou kale/rouge/romanesco, panais,

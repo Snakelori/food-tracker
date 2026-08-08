@@ -876,7 +876,7 @@ async function renderAnalyses() {
     b.onclick = () => { state.statsPeriod = Number(b.dataset.p); renderAnalyses(); });
 
   const [mealsRes, healthRes, drinksRes, actsRes, wRes, gRes] = await Promise.all([
-    supabase.from("meals").select("id, meal_date, meal_items(custom_name, quantity_kind, quantity_number, products(name,emoji,category_id,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))").gte("meal_date", from),
+    supabase.from("meals").select("id, meal_date, meal_type, meal_items(custom_name, quantity_kind, quantity_number, products(name,emoji,category_id,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))").gte("meal_date", from),
     supabase.from("health_states").select("meal_id, log_date, feeling, symptoms").gte("log_date", from),
     supabase.from("drinks").select("drink_type, glasses, log_date").gte("log_date", from),
     supabase.from("activities").select("activity_date, duration_min, calories").gte("activity_date", from),
@@ -937,6 +937,8 @@ async function renderAnalyses() {
   const daysSet = new Set();
   let totalItems = 0;
   const nutriTotal = emptyNutri();
+  // Séries par jour (pour les courbes de tendance)
+  const kcalByDate = new Map(), sugarByDate = new Map(), encasByDate = new Map();
   for (const m of meals) {
     daysSet.add(m.meal_date);
     const prods = (m.meal_items || []).map(itemInfo);
@@ -948,7 +950,16 @@ async function renderAnalyses() {
       f.count++; foodFreq.set(p.name, f);
       if (p.cat) catFreq.set(p.cat, (catFreq.get(p.cat) || 0) + 1);
     }
-    for (const it of (m.meal_items || [])) addNutri(nutriTotal, itemNutrition(it));
+    let mk = 0, ms = 0;
+    for (const it of (m.meal_items || [])) {
+      const n = itemNutrition(it);
+      addNutri(nutriTotal, n);
+      if (n) { mk += n.kcal; ms += n.sugar; }
+    }
+    kcalByDate.set(m.meal_date, (kcalByDate.get(m.meal_date) || 0) + mk);
+    sugarByDate.set(m.meal_date, (sugarByDate.get(m.meal_date) || 0) + ms);
+    if (m.meal_type === "encas" && (m.meal_items || []).length)
+      encasByDate.set(m.meal_date, (encasByDate.get(m.meal_date) || 0) + 1);
   }
 
   // Corrélation aliment ↔ ressenti + ressenti par jour
@@ -1066,6 +1077,30 @@ async function renderAnalyses() {
     </div>`;
   }
 
+  // Courbes de tendance quotidienne (30 derniers jours avec repas)
+  const mealDays = [...kcalByDate.keys()].sort().slice(-30);
+  if (mealDays.length >= 2) {
+    const kcalPts = mealDays.map(d => ({ d, v: Math.round(kcalByDate.get(d) || 0) }));
+    const sugarPts = mealDays.map(d => ({ d, v: Math.round(sugarByDate.get(d) || 0) }));
+    const encasPts = mealDays.map(d => ({ d, v: encasByDate.get(d) || 0 }));
+    const hasEncas = encasPts.some(p => p.v > 0);
+    html += `<div class="analysis-card">
+      <h3>📈 Tendances quotidiennes <span style="font-size:12px;color:var(--ink-soft);font-weight:600">· ${mealDays.length} derniers jours</span></h3>
+      <div class="trend-block">
+        <div class="trend-label">🔥 Calories ingérées / jour${goal?.daily_kcal_goal ? ` <span class="trend-goal">🎯 objectif ${goal.daily_kcal_goal}</span>` : ""}</div>
+        ${trendChart(kcalPts, { color: "var(--green-deep)", goal: goal?.daily_kcal_goal ?? null })}
+      </div>
+      <div class="trend-block">
+        <div class="trend-label">🍎 Encas / jour</div>
+        ${hasEncas ? trendChart(encasPts, { color: "var(--peach)", min0: true, fmt: v => (Math.round(v * 10) / 10) }) : `<p class="empty-hint" style="margin:4px 0 0">Aucun encas enregistré sur la période.</p>`}
+      </div>
+      <div class="trend-block">
+        <div class="trend-label">🍬 Sucres / jour <span class="trend-goal" style="background:none;color:var(--ink-soft)">(g)</span></div>
+        ${trendChart(sugarPts, { color: "#e0a24a", min0: true })}
+      </div>
+    </div>`;
+  }
+
   // Aliments à surveiller
   html += `<div class="analysis-card">
     <h3>⚠️ Aliments à surveiller</h3>
@@ -1161,6 +1196,42 @@ function weightSparkline(ws, target) {
   const tline = target != null ? `<line x1="${pad}" y1="${y(target).toFixed(1)}" x2="${W - pad}" y2="${y(target).toFixed(1)}" stroke="var(--peach)" stroke-width="1.5" stroke-dasharray="4 4"/>` : "";
   return `<svg class="weight-spark" viewBox="0 0 ${W} ${H}">${tline}
     <polyline points="${pts}" fill="none" stroke="var(--green-deep)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>`;
+}
+
+/* Courbe de tendance générique — points: [{d:"YYYY-MM-DD", v:number}] triés */
+function trendChart(points, opts = {}) {
+  if (points.length < 2) return `<p class="empty-hint" style="margin:4px 0 0">Pas assez de données (min. 2 jours).</p>`;
+  const vals = points.map(p => p.v);
+  const goal = opts.goal ?? null;
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (goal != null) { min = Math.min(min, goal); max = Math.max(max, goal); }
+  if (opts.min0) min = Math.min(min, 0);
+  const range = (max - min) || 1;
+  const W = 320, H = 96, padX = 10, padT = 12, padB = 12;
+  const x = i => padX + (i / (points.length - 1)) * (W - 2 * padX);
+  const y = v => padT + (1 - (v - min) / range) * (H - padT - padB);
+  const color = opts.color || "var(--green-deep)";
+  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const area = `${padX.toFixed(1)},${(H - padB).toFixed(1)} ${line} ${(W - padX).toFixed(1)},${(H - padB).toFixed(1)}`;
+  const gid = "tg" + Math.random().toString(36).slice(2, 8);
+  const goalLine = goal != null
+    ? `<line x1="${padX}" y1="${y(goal).toFixed(1)}" x2="${W - padX}" y2="${y(goal).toFixed(1)}" stroke="var(--peach)" stroke-width="1.5" stroke-dasharray="4 4"/>` : "";
+  const li = points.length - 1;
+  const fmt = opts.fmt || (v => Math.round(v));
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return `<svg class="trend-line" viewBox="0 0 ${W} ${H}">
+      <defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+      ${goalLine}
+      <polygon points="${area}" fill="url(#${gid})"/>
+      <polyline points="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(li).toFixed(1)}" cy="${y(points[li].v).toFixed(1)}" r="3.2" fill="${color}"/>
+    </svg>
+    <div class="trend-ends"><span>${fmtDate(points[0].d)}</span>
+      <span class="trend-meta">moy <b>${fmt(mean)}</b> · dernier <b>${fmt(points[li].v)}</b></span>
+      <span>${fmtDate(points[li].d)}</span></div>`;
 }
 
 /* ---------- Modale : peser ---------- */

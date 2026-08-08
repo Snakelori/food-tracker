@@ -598,3 +598,13 @@ body {
 .rem-switch span::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .rem-switch input:checked + span { background: var(--green); }
 .rem-switch input:checked + span::before { transform: translateX(18px); }
+
+/* ---------- Courbes de tendance (Analyses) ---------- */
+.trend-block { margin-top: 14px; }
+.trend-block:first-of-type { margin-top: 6px; }
+.trend-label { font-size: 13px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.trend-goal { font-size: 11px; font-weight: 700; color: #c96a4f; background: var(--peach-soft); padding: 2px 8px; border-radius: 20px; }
+.trend-line { width: 100%; height: auto; display: block; margin-top: 6px; }
+.trend-ends { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.trend-meta { font-weight: 600; color: var(--ink-soft); }
+.trend-meta b { color: var(--green-deep); font-weight: 800; }
