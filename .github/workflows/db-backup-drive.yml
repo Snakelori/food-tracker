@@ -36,10 +36,21 @@ jobs:
         env:
           DB: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -euo pipefail
+          # Utiliser le pg_dump le plus récent installé (le serveur Supabase est en PG17,
+          # or le pg_dump préinstallé du runner est en PG16 -> version mismatch).
+          PGDUMP="$(ls /usr/lib/postgresql/*/bin/pg_dump 2>/dev/null | sort -V | tail -1)"
+          [ -z "$PGDUMP" ] && PGDUMP="pg_dump"
+          echo "pg_dump utilisé : $PGDUMP"; "$PGDUMP" --version
           FILE="food-db-$(date +%Y-%m-%d).sql.gz"
           echo "FILE=$FILE" >> "$GITHUB_ENV"
-          pg_dump "$DB" --schema=public --no-owner --no-privileges | gzip > "$FILE"
-          echo "Taille du dump :"; ls -lh "$FILE"
+          "$PGDUMP" "$DB" --schema=public --no-owner --no-privileges | gzip > "$FILE"
+          SIZE=$(stat -c%s "$FILE")
+          echo "Taille du dump : ${SIZE} octets"; ls -lh "$FILE"
+          if [ "$SIZE" -lt 200 ]; then
+            echo "::error::Dump anormalement petit (${SIZE} octets) — sauvegarde invalide, échec volontaire."
+            exit 1
+          fi
 
       - name: Installer rclone
         if: env.SKIP != '1'
