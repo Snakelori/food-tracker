@@ -687,6 +687,18 @@ const ACTIVITIES = [
   ["Skateboard", "🛹"], ["Équitation", "🏇"], ["Golf", "⛳"], ["Jardinage", "🪴"],
 ];
 
+/* Valeurs MET (dépense d'énergie) par activité, intensité modérée. */
+const ACT_MET = {
+  "Marche": 3.5, "Marche rapide": 5.0, "Randonnée": 6.0, "Course à pied": 9.0, "Trail": 9.5,
+  "Vélo": 7.0, "VTT": 8.5, "Natation": 7.0, "Aquagym": 5.5, "Musculation": 5.0, "Crossfit": 8.0,
+  "Yoga": 3.0, "Pilates": 3.5, "Stretching": 2.5, "Gym / Fitness": 5.0, "Danse": 5.0,
+  "Corde à sauter": 11.0, "Football": 7.0, "Basketball": 6.5, "Tennis": 7.0, "Padel": 6.0,
+  "Badminton": 5.5, "Ping-pong": 4.0, "Volleyball": 4.0, "Handball": 8.0, "Rugby": 8.0,
+  "Boxe": 9.0, "Arts martiaux": 8.0, "Escalade": 8.0, "Aviron / Rameur": 7.0, "Ski": 7.0,
+  "Snowboard": 5.5, "Roller": 7.0, "Skateboard": 5.0, "Équitation": 5.5, "Golf": 4.5, "Jardinage": 3.8,
+};
+const ACT_INTENSITY_FACTOR = { faible: 0.8, moderee: 1.0, intense: 1.25 };
+
 /* Durée d'activité formatée (heures / minutes) */
 function fmtActDuration(a) {
   const min = a.duration_min != null ? a.duration_min : (a.duration_sec != null ? Math.round(a.duration_sec / 60) : 0);
@@ -716,21 +728,48 @@ function openAddActivityModal() {
         <button class="chip selected" data-i="moderee">🟡 Modérée</button>
         <button class="chip" data-i="intense">🔴 Intense</button>
       </div></div>
-    <div class="field"><label>Calories dépensées (optionnel)</label>
-      <input type="number" id="act-cal" placeholder="Estimation en kcal" min="0" /></div>
+    <div class="field"><label>Calories dépensées</label>
+      <input type="number" id="act-cal" placeholder="Estimation en kcal" min="0" />
+      <div class="act-cal-hint" id="act-cal-hint"></div></div>
     <button class="btn btn-primary btn-block" id="save-act">Ajouter</button>
   `);
   const nameEl = overlay.querySelector("#act-name");
   const picker = overlay.querySelector("#act-picker");
+  const calEl = overlay.querySelector("#act-cal");
+  const hintEl = overlay.querySelector("#act-cal-hint");
+  const hEl = overlay.querySelector("#act-h"), mEl = overlay.querySelector("#act-m");
+
+  // Poids pour l'estimation (dernière pesée, sinon 70 kg par défaut)
+  let weightKg = 70, weightDefault = true;
+  supabase.from("weights").select("weight_kg").order("log_date", { ascending: false }).limit(1).maybeSingle()
+    .then(({ data }) => { if (data?.weight_kg) { weightKg = Number(data.weight_kg); weightDefault = false; } recompute(); });
+
+  let calTouched = false;
+  calEl.oninput = () => { calTouched = true; };
+  function recompute() {
+    const met = ACT_MET[nameEl.value.trim()] ?? 5;
+    const min = (Number(hEl.value) || 0) * 60 + (Number(mEl.value) || 0);
+    if (min <= 0) {
+      hintEl.textContent = weightDefault ? "💡 Enregistrez une pesée pour une estimation personnalisée." : "";
+      return;
+    }
+    const kcal = Math.round(met * (ACT_INTENSITY_FACTOR[intensity] || 1) * weightKg * (min / 60));
+    if (!calTouched) calEl.value = kcal;
+    const intLabel = { faible: "faible", moderee: "modérée", intense: "intense" }[intensity];
+    hintEl.textContent = `≈ ${kcal} kcal estimées · ${weightKg} kg${weightDefault ? " (poids par défaut)" : ""} · intensité ${intLabel}` + (calTouched ? " — valeur modifiée manuellement" : "");
+  }
+
   const syncPicker = () => picker.querySelectorAll(".act-chip").forEach(c =>
     c.classList.toggle("selected", c.dataset.act.toLowerCase() === nameEl.value.trim().toLowerCase()));
-  picker.querySelectorAll("[data-act]").forEach(b => b.onclick = () => { nameEl.value = b.dataset.act; syncPicker(); });
-  nameEl.oninput = syncPicker;
+  picker.querySelectorAll("[data-act]").forEach(b => b.onclick = () => { nameEl.value = b.dataset.act; syncPicker(); recompute(); });
+  nameEl.oninput = () => { syncPicker(); recompute(); };
+  hEl.oninput = recompute; mEl.oninput = recompute;
   const ai = overlay.querySelector("#act-int");
   ai.querySelectorAll("[data-i]").forEach(b => b.onclick = () => {
     intensity = b.dataset.i;
     ai.querySelectorAll(".chip").forEach(x => x.classList.remove("selected"));
     b.classList.add("selected");
+    recompute();
   });
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
   overlay.querySelector("#save-act").onclick = async () => {

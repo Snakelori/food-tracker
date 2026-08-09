@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.2] — 2026-08-08
+### Ajouté — Estimation des calories d'activité
+- Les **calories dépensées se calculent automatiquement** d'après l'activité choisie,
+  la durée, l'intensité et votre **dernier poids** (formule MET × poids × durée).
+  Le champ reste modifiable ; une note indique l'estimation et le poids utilisé.
+
 ## [2.7.1] — 2026-08-08
 ### Amélioré — Activités
 - **Sélecteur d'activités** (vélo, natation, course à pied, musculation, yoga, sports…) :
