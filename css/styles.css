@@ -608,3 +608,13 @@ body {
 .trend-ends { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
 .trend-meta { font-weight: 600; color: var(--ink-soft); }
 .trend-meta b { color: var(--green-deep); font-weight: 800; }
+
+/* ---------- Sélecteur d'activités + durée h/min/s ---------- */
+.act-picker { display: flex; flex-wrap: wrap; gap: 7px; max-height: 168px; overflow-y: auto; margin: -4px 0 14px; padding: 2px; }
+.act-chip { border: 1px solid var(--border); background: #fff; color: var(--ink); border-radius: 20px; padding: 6px 11px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: .15s; white-space: nowrap; }
+.act-chip:active { transform: scale(.95); }
+.act-chip.selected { background: var(--green); color: #fff; border-color: var(--green); }
+.hms-row { display: flex; gap: 10px; }
+.hms-cell { flex: 1; display: flex; align-items: center; gap: 6px; }
+.hms-cell input { width: 100%; text-align: center; }
+.hms-cell span { font-size: 13px; color: var(--ink-soft); font-weight: 700; }
