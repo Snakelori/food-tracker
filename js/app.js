@@ -687,14 +687,13 @@ const ACTIVITIES = [
   ["Skateboard", "🛹"], ["Équitation", "🏇"], ["Golf", "⛳"], ["Jardinage", "🪴"],
 ];
 
-/* Durée d'activité formatée à partir des secondes (ou minutes) */
+/* Durée d'activité formatée (heures / minutes) */
 function fmtActDuration(a) {
-  const sec = a.duration_sec != null ? a.duration_sec : (a.duration_min != null ? a.duration_min * 60 : 0);
-  if (!sec) return "";
-  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-  if (h) return `${h}h${String(m).padStart(2, "0")}${s ? "'" + String(s).padStart(2, "0") : ""}`;
-  if (m) return s ? `${m} min ${s}s` : `${m} min`;
-  return `${s}s`;
+  const min = a.duration_min != null ? a.duration_min : (a.duration_sec != null ? Math.round(a.duration_sec / 60) : 0);
+  if (!min) return "";
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h) return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+  return `${m} min`;
 }
 
 function openAddActivityModal() {
@@ -710,7 +709,6 @@ function openAddActivityModal() {
       <div class="hms-row">
         <div class="hms-cell"><input type="number" id="act-h" min="0" max="99" placeholder="0" inputmode="numeric"><span>h</span></div>
         <div class="hms-cell"><input type="number" id="act-m" min="0" max="59" placeholder="30" inputmode="numeric"><span>min</span></div>
-        <div class="hms-cell"><input type="number" id="act-s" min="0" max="59" placeholder="0" inputmode="numeric"><span>s</span></div>
       </div></div>
     <div class="field"><label>Intensité</label>
       <div class="chip-row" id="act-int">
@@ -740,20 +738,13 @@ function openAddActivityModal() {
     if (!name) return toast("Indiquez l'activité", "err");
     const h = Number(overlay.querySelector("#act-h").value) || 0;
     const m = Number(overlay.querySelector("#act-m").value) || 0;
-    const s = Number(overlay.querySelector("#act-s").value) || 0;
-    const totalSec = h * 3600 + m * 60 + s;
+    const totalMin = h * 60 + m;
     const row = {
       activity_date: state.date, name, intensity,
-      duration_sec: totalSec || null,
-      duration_min: totalSec ? Math.round(totalSec / 60) : null,
+      duration_min: totalMin || null,
       calories: Number(overlay.querySelector("#act-cal").value) || null,
     };
-    let { error } = await supabase.from("activities").insert(row);
-    if (error && /duration_sec/.test(error.message)) {
-      // Colonne pas encore créée (activites.sql non exécuté) : repli sans duration_sec
-      const { duration_sec, ...fallback } = row;
-      ({ error } = await supabase.from("activities").insert(fallback));
-    }
+    const { error } = await supabase.from("activities").insert(row);
     if (error) return toast("Erreur : " + error.message, "err");
     closeModal(overlay); toast("Activité ajoutée", "ok"); renderJournee();
   };
@@ -926,7 +917,7 @@ async function renderAnalyses() {
     supabase.from("meals").select("id, meal_date, meal_type, meal_items(custom_name, quantity_kind, quantity_number, products(name,emoji,category_id,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))").gte("meal_date", from),
     supabase.from("health_states").select("meal_id, log_date, feeling, symptoms").gte("log_date", from),
     supabase.from("drinks").select("drink_type, glasses, log_date").gte("log_date", from),
-    supabase.from("activities").select("activity_date, duration_min, duration_sec, calories").gte("activity_date", from),
+    supabase.from("activities").select("activity_date, duration_min, calories").gte("activity_date", from),
     supabase.from("weights").select("log_date, weight_kg").order("log_date"),
     supabase.from("user_goals").select("*").maybeSingle(),
   ]);
@@ -1060,12 +1051,7 @@ async function renderAnalyses() {
 
   // Activités
   let totMin = 0, totCal = 0; const actDays = new Set();
-  let totSec = 0;
-  for (const a of acts) {
-    totSec += a.duration_sec != null ? a.duration_sec : (a.duration_min || 0) * 60;
-    totCal += a.calories || 0; actDays.add(a.activity_date); daysSet.add(a.activity_date);
-  }
-  totMin = Math.round(totSec / 60);
+  for (const a of acts) { totMin += a.duration_min || 0; totCal += a.calories || 0; actDays.add(a.activity_date); daysSet.add(a.activity_date); }
 
   // Tendance ressenti (30 derniers jours avec données)
   const trend = [...feelByDate.keys()].sort().slice(-30).map(d => ({ d, avg: average(feelByDate.get(d)) }));

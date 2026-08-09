@@ -7,9 +7,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 ### Amélioré — Activités
 - **Sélecteur d'activités** (vélo, natation, course à pied, musculation, yoga, sports…) :
   un clic remplit le nom, tout en gardant la saisie libre possible.
-- **Durée en heures / minutes / secondes** (hh:mm:ss) au lieu des seules minutes.
-  Durée précise stockée via `supabase/activites.sql` (colonne `duration_sec`) ; l'app
-  fonctionne même avant d'exécuter ce script (repli automatique).
+- **Durée en heures / minutes** (au lieu des seules minutes).
 
 ## [2.7.0] — 2026-08-08
 ### Ajouté — Courbes de tendance (Analyses)
