@@ -3,6 +3,18 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.3] — 2026-08-08
+### Enrichi — Viandes
+- **Protéines** : +45 produits — boulettes de viande (bœuf, veau, agneau/kefta, porc,
+  volaille, poisson, suédoises), steak haché (5/15 % + végétal), panés (cordon bleu,
+  escalope milanaise, nuggets, tenders), morceaux (blanc/cuisse/aile de poulet, entrecôte,
+  côtes de porc/agneau, magret, travers…), saucisses (chipolata, Toulouse, knacki, merguez,
+  boudin noir/blanc, andouillette…) et charcuterie (jambon cru, bacon, lardons, chorizo,
+  salami, mortadelle, pâté, rillettes).
+- **Plats préparés** : bœuf bourguignon, blanquette, pot-au-feu, chili con carne, lasagnes,
+  boulettes sauce tomate, curry de bœuf, poulet basquaise.
+- À charger via `supabase/produits-viandes.sql`.
+
 ## [2.7.2] — 2026-08-08
 ### Ajouté — Estimation des calories d'activité
 - Les **calories dépensées se calculent automatiquement** d'après l'activité choisie,
