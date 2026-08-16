@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.7] — 2026-08-08
+### Enrichi
+- Nouvelle catégorie **🍦 Glaces & desserts glacés** : ~43 produits — parfums (vanille,
+  chocolat, pistache, café, caramel beurre salé, stracciatella, cookies, menthe-choco…),
+  **sorbets** (citron, fraise, mangue, framboise, cassis, coco…), et **desserts glacés**
+  (cornet, bâtonnet enrobé, esquimau, coupe, banana split, liégeois, dame blanche,
+  vacherin, frozen yogurt, granité…). À charger via `supabase/produits-glaces.sql`.
+
 ## [2.7.6] — 2026-08-08
 ### Enrichi — Fast-food & kebabs
 - **Burger & Fast-food** : Big Mac, Whopper, Royal Cheese, double/triple cheeseburger,
