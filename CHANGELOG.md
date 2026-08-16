@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.6] — 2026-08-08
+### Enrichi — Fast-food & kebabs
+- **Burger & Fast-food** : Big Mac, Whopper, Royal Cheese, double/triple cheeseburger,
+  Filet-O-Fish, McChicken, Zinger, nuggets (x6/x9), wings, poulet frit, tacos français,
+  frites moyenne/grande, potatoes, McFlurry, sundae, donut, muffin, cookie, chausson…
+- **Libanais / Oriental** : kebab (sandwich, galette/dürüm, poulet), assiette kebab,
+  kebab-frites, Adana, İskender.
+- À charger via `supabase/produits-fastfood-kebab.sql`.
+
 ## [2.7.5] — 2026-08-08
 ### Enrichi
 - **Macédoine** : macédoine de légumes (nature et mayonnaise) dans Légumes, et macédoine
