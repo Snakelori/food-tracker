@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.8] — 2026-08-08
+### Enrichi
+- **Glaces** : ajout des **Magnum** nommés (classique, amande, chocolat blanc, double
+  caramel, double chocolat, praliné, fruits rouges, mini). À charger via
+  `supabase/produits-glaces-magnum.sql`.
+
 ## [2.7.7] — 2026-08-08
 ### Enrichi
 - Nouvelle catégorie **🍦 Glaces & desserts glacés** : ~43 produits — parfums (vanille,
