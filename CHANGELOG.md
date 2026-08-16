@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.5] — 2026-08-08
+### Enrichi
+- **Macédoine** : macédoine de légumes (nature et mayonnaise) dans Légumes, et macédoine
+  de fruits dans Fruits. À charger via `supabase/produits-macedoine.sql`.
+
 ## [2.7.4] — 2026-08-08
 ### Enrichi — Plats français classiques
 - **Plats préparés** : +33 classiques — cassoulet, coq au vin, bœuf carottes, navarin
