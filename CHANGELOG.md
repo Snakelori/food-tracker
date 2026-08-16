@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.8.2] — 2026-08-08
+### Ajouté — Scan de code-barres 📷
+- Dans l'ajout d'aliment : **« Scanner un code-barres »**. Le produit est récupéré depuis
+  **Open Food Facts** (nom + valeurs nutritionnelles /100 g + portion) puis ajouté à votre
+  catalogue et au repas en cours.
+- **Caméra** (via BarcodeDetector, avec repli ZXing pour iOS/Safari) **ou saisie manuelle**
+  du code. Aucune configuration : utilise la table `products` existante.
+
 ## [2.8.1] — 2026-08-08
 ### Ajouté — Bilan énergétique & objectifs de macros
 - **⚖️ Bilan du jour** dans la Journée : kcal **ingérées − dépensées = solde net**,

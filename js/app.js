@@ -542,6 +542,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
       <input type="time" id="item-time" value="${defaultTime}"></div>
     <p class="pick-hint">Touchez les aliments pour en choisir <b>plusieurs</b> (recherche ou navigation par catégorie).</p>
     <input type="text" id="prod-search" class="prod-search" placeholder="🔍 Rechercher un aliment (toutes catégories)…" />
+    <button class="btn btn-soft btn-sm btn-block" id="scan-barcode" type="button" style="margin-bottom:10px">📷 Scanner un code-barres</button>
     <div class="cat-tabs" id="cat-tabs"></div>
     <div class="product-grid" id="product-grid"></div>
     <div class="field" style="margin-top:8px"><label>… ou ajouter un aliment libre</label>
@@ -686,6 +687,16 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
   }
   overlay.querySelector("#add-custom").onclick = addCustom;
   customInput.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } };
+
+  // 📷 Scan code-barres → Open Food Facts → produit ajouté au catalogue + sélection
+  overlay.querySelector("#scan-barcode").onclick = () => openBarcodeModal(activeCat === FAV ? state.categories[0]?.id : activeCat, (prod) => {
+    prodById.set(prod.id, prod);
+    allProducts.push({ ...prod, _cat: catName(prod.category_id) });
+    (state.productsByCat[prod.category_id] ??= []).push(prod);
+    selected.set(prod.id, { product_id: prod.id, name: prod.name, emoji: prod.emoji || "📷", prod, quantity_kind: "moyenne", quantity_number: null });
+    renderProducts(); renderTray();
+  });
+
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
 
   saveBtn.onclick = async () => {
@@ -861,6 +872,129 @@ function openAddActivityModal() {
     const { error } = await supabase.from("activities").insert(row);
     if (error) return toast("Erreur : " + error.message, "err");
     closeModal(overlay); toast("Activité ajoutée", "ok"); renderJournee();
+  };
+}
+
+/* ============================================================
+   MODALE : SCAN CODE-BARRES (Open Food Facts)
+   ============================================================ */
+async function fetchOFF(code) {
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json` +
+    `?fields=product_name,product_name_fr,brands,nutriments,serving_quantity`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (j.status !== 1 || !j.product) return null;
+  const p = j.product, n = p.nutriments || {};
+  const kcal = n["energy-kcal_100g"] != null ? n["energy-kcal_100g"]
+    : (n.energy_100g != null ? n.energy_100g / 4.184 : null);
+  const rnd = (x, d = 1) => x == null ? null : Math.round(x * 10 ** d) / 10 ** d;
+  const portion = p.serving_quantity && Number(p.serving_quantity) > 0 ? Math.round(Number(p.serving_quantity)) : 100;
+  return {
+    name: (p.product_name_fr || p.product_name || "").trim() || "Produit scanné",
+    brands: p.brands || "",
+    energy_kcal: kcal != null ? Math.round(kcal) : null,
+    carb_g: rnd(n.carbohydrates_100g), sugar_g: rnd(n.sugars_100g),
+    fat_g: rnd(n.fat_100g), protein_g: rnd(n.proteins_100g), salt_g: rnd(n.salt_100g, 2),
+    portion_g: portion, barcode: code,
+  };
+}
+
+function openBarcodeModal(defaultCatId, onCreated) {
+  const cats = state.categories;
+  const overlay = openModal(`
+    <div class="modal-head"><h2>📷 Scanner un code-barres</h2><button class="modal-close">✕</button></div>
+    <div id="bc-scan"></div>
+    <button class="btn btn-soft btn-block" id="bc-cam" type="button" style="margin-bottom:12px">📷 Scanner avec la caméra</button>
+    <div class="field"><label>… ou saisir le code-barres</label>
+      <div class="custom-row">
+        <input type="text" id="bc-code" inputmode="numeric" placeholder="Ex : 3017620422003">
+        <button class="btn btn-soft" id="bc-search" type="button">Rechercher</button>
+      </div></div>
+    <div id="bc-result"></div>
+  `);
+  const codeEl = overlay.querySelector("#bc-code");
+  const resultEl = overlay.querySelector("#bc-result");
+  const scanEl = overlay.querySelector("#bc-scan");
+  let stream = null, scanning = false, reader = null;
+  const stopCam = () => {
+    scanning = false;
+    try { reader?.reset?.(); } catch {}
+    reader = null;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    scanEl.innerHTML = "";
+  };
+  const close = () => { stopCam(); closeModal(overlay); };
+  overlay.querySelector(".modal-close").onclick = close;
+  overlay.addEventListener("mousedown", e => { if (e.target === overlay) close(); });
+
+  async function lookup(code) {
+    stopCam();
+    resultEl.innerHTML = `<p class="empty-hint">Recherche du produit…</p>`;
+    let prod;
+    try { prod = await fetchOFF(code); }
+    catch { resultEl.innerHTML = `<p class="empty-hint">Erreur réseau — réessayez.</p>`; return; }
+    if (!prod) {
+      resultEl.innerHTML = `<p class="empty-hint">Code <b>${esc(code)}</b> introuvable dans Open Food Facts. Vérifiez le code, ou ajoutez l'aliment manuellement.</p>`;
+      return;
+    }
+    const kc = (prod.energy_kcal != null && prod.portion_g) ? Math.round(prod.energy_kcal * prod.portion_g / 100) : null;
+    resultEl.innerHTML = `<div class="analysis-card" style="margin-top:6px">
+      <div class="bc-name">📷 ${esc(prod.name)}${prod.brands ? ` <span class="muted">· ${esc(prod.brands.split(",")[0])}</span>` : ""}</div>
+      <div class="tray-nutri">🔥 ${prod.energy_kcal ?? "?"} kcal/100 g${kc != null ? ` · ~${kc} kcal / portion (${prod.portion_g} g)` : ""}</div>
+      <div class="tray-nutri">🍬 ${prod.sugar_g ?? "?"} g · 🧈 ${prod.fat_g ?? "?"} g · 🥩 ${prod.protein_g ?? "?"} g · 🧂 ${prod.salt_g ?? "?"} g /100 g</div>
+      <div class="field" style="margin-top:10px"><label>Ranger dans la catégorie</label>
+        <select id="bc-cat">${cats.map(c => `<option value="${c.id}" ${c.id === defaultCatId ? "selected" : ""}>${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
+      <button class="btn btn-primary btn-block" id="bc-add">➕ Ajouter au catalogue et au repas</button>
+    </div>`;
+    resultEl.querySelector("#bc-add").onclick = async () => {
+      const row = {
+        user_id: state.user.id, category_id: resultEl.querySelector("#bc-cat").value,
+        name: prod.name, emoji: "📷",
+        energy_kcal: prod.energy_kcal, carb_g: prod.carb_g, sugar_g: prod.sugar_g,
+        fat_g: prod.fat_g, protein_g: prod.protein_g, salt_g: prod.salt_g, portion_g: prod.portion_g,
+      };
+      const { data, error } = await supabase.from("products").insert(row).select().single();
+      if (error) return toast("Erreur : " + error.message, "err");
+      toast("Produit scanné ajouté", "ok"); close(); onCreated && onCreated(data);
+    };
+  }
+
+  overlay.querySelector("#bc-search").onclick = () => { const c = codeEl.value.trim(); if (c) lookup(c); };
+  codeEl.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const c = codeEl.value.trim(); if (c) lookup(c); } };
+
+  overlay.querySelector("#bc-cam").onclick = async () => {
+    if (scanning) return;
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); }
+    catch { resultEl.innerHTML = `<p class="empty-hint">Caméra indisponible (autorisation refusée ?). Saisissez le code à la main.</p>`; return; }
+    scanEl.innerHTML = `<video id="bc-video" playsinline muted style="width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover"></video>
+      <p class="sub" style="text-align:center;margin-top:6px">Visez le code-barres du produit…</p>`;
+    const video = scanEl.querySelector("#bc-video");
+    video.srcObject = stream; await video.play().catch(() => {});
+    scanning = true;
+    let detector = null;
+    if ("BarcodeDetector" in window) {
+      try { detector = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] }); } catch {}
+    }
+    if (detector) {
+      const tick = async () => {
+        if (!scanning) return;
+        try { const codes = await detector.detect(video); if (codes?.length) { codeEl.value = codes[0].rawValue; return lookup(codes[0].rawValue); } } catch {}
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    } else {
+      // Fallback universel (iOS Safari…) : ZXing chargé à la demande
+      try {
+        const zx = await import("https://esm.sh/@zxing/browser@0.1.5");
+        reader = new zx.BrowserMultiFormatReader();
+        reader.decodeFromVideoElement(video, (res) => {
+          if (res && scanning) { codeEl.value = res.getText(); lookup(res.getText()); }
+        });
+      } catch {
+        resultEl.innerHTML = `<p class="empty-hint">Scan caméra non disponible sur ce navigateur. Saisissez les chiffres sous le code-barres (souvent 13 chiffres).</p>`;
+        stopCam();
+      }
+    }
   };
 }
 

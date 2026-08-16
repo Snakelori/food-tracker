@@ -637,3 +637,7 @@ body {
 .mg-bar { height: 8px; background: var(--green-soft); border-radius: 20px; overflow: hidden; }
 .mg-fill { height: 100%; background: var(--green-deep); border-radius: 20px; transition: width .3s; }
 .mg-fill.over { background: var(--peach); }
+
+/* Scan code-barres */
+.bc-name { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+#bc-scan:empty { display: none; }
