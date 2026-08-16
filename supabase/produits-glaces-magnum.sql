@@ -24,7 +24,7 @@ where not exists (
 );
 
 -- Contrôle
-select name from public.products pr
+select pr.name from public.products pr
 join public.categories c on c.id = pr.category_id
 where c.name = 'Glaces & desserts glacés' and pr.user_id is null and pr.name ilike 'magnum%'
-order by name;
+order by pr.name;
