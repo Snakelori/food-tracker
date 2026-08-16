@@ -239,6 +239,35 @@ async function renderJournee() {
       <div class="stat-tile"><div class="v">${calBrulees || "–"}</div><div class="l">kcal dépensées</div></div>
     </div>`;
 
+  // ⚖️ Bilan énergétique + objectifs de macros
+  if (dayNutri.kcal > 0 || calBrulees > 0) {
+    const { data: goal } = await supabase.from("user_goals").select("*").maybeSingle();
+    const ing = Math.round(dayNutri.kcal), net = ing - calBrulees;
+    html += `<div class="analysis-card" style="margin-bottom:16px">
+      <h3>⚖️ Bilan du jour</h3>
+      <div class="balance-row">
+        <span>🍽️ <b>${ing}</b><small>ingérées</small></span><span class="op">−</span>
+        <span>🔥 <b>${calBrulees}</b><small>dépensées</small></span><span class="op">=</span>
+        <span class="balance-net">${net}<small>kcal net</small></span>
+      </div>`;
+    if (goal?.daily_kcal_goal) {
+      const g = goal.daily_kcal_goal, pct = Math.min(100, Math.round(ing / g * 100)), over = ing > g;
+      html += `<div class="goal-bar"><div class="goal-bar-fill ${over ? "over" : ""}" style="width:${pct}%"></div></div>
+        <div class="sub">${ing} / ${g} kcal ingérées · ${over ? (ing - g) + " au-dessus" : (g - ing) + " kcal restantes ✅"}</div>`;
+    }
+    const macros = [["Protéines", "prot", "protein_g_goal", "🥩"], ["Glucides", "carb", "carb_g_goal", "🍞"], ["Lipides", "fat", "fat_g_goal", "🧈"]];
+    if (goal && (goal.protein_g_goal || goal.carb_g_goal || goal.fat_g_goal)) {
+      html += `<div class="macro-goals">` + macros.map(([lab, key, gk, emo]) => {
+        const val = Math.round(dayNutri[key]), g = goal[gk];
+        if (!g) return `<div class="macro-goal"><div class="mg-head"><span>${emo} ${lab}</span><span>${val} g</span></div></div>`;
+        const pct = Math.min(100, Math.round(val / g * 100));
+        return `<div class="macro-goal"><div class="mg-head"><span>${emo} ${lab}</span><span>${val} / ${g} g</span></div>
+          <div class="mg-bar"><div class="mg-fill ${val > g ? "over" : ""}" style="width:${pct}%"></div></div></div>`;
+      }).join("") + `</div>`;
+    }
+    html += `</div>`;
+  }
+
   // Cartes des repas principaux (petit-déj, déjeuner, dîner)
   for (const mt of MEAL_TYPES) {
     if (mt.key === "encas") continue;
@@ -1391,19 +1420,35 @@ function openGoalModal(goal, onSaved) {
       <input type="number" id="g-height" step="1" min="0" value="${v("height_cm")}" placeholder="ex : 175"></div>
     <div class="field"><label>Objectif calories / jour (optionnel)</label>
       <input type="number" id="g-kcal" step="10" min="0" value="${v("daily_kcal_goal")}" placeholder="ex : 1800"></div>
+    <div class="field"><label>Objectifs macros / jour (optionnel)</label>
+      <div class="hms-row">
+        <div class="hms-cell"><input type="number" id="g-prot" min="0" step="1" value="${v("protein_g_goal")}" placeholder="prot."><span>g 🥩</span></div>
+        <div class="hms-cell"><input type="number" id="g-carb" min="0" step="1" value="${v("carb_g_goal")}" placeholder="gluc."><span>g 🍞</span></div>
+        <div class="hms-cell"><input type="number" id="g-fat" min="0" step="1" value="${v("fat_g_goal")}" placeholder="lip."><span>g 🧈</span></div>
+      </div></div>
     <button class="btn btn-primary btn-block" id="g-save">Enregistrer</button>
   `);
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
   overlay.querySelector("#g-save").onclick = async () => {
     const num = id => { const x = overlay.querySelector(id).value; return x === "" ? null : Number(x); };
-    const { error } = await supabase.from("user_goals").upsert({
+    const base = {
       user_id: state.user.id,
       target_weight_kg: num("#g-target"), start_weight_kg: num("#g-start"),
       height_cm: num("#g-height"), daily_kcal_goal: num("#g-kcal"),
       updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
+    };
+    const full = { ...base, protein_g_goal: num("#g-prot"), carb_g_goal: num("#g-carb"), fat_g_goal: num("#g-fat") };
+    let { error } = await supabase.from("user_goals").upsert(full, { onConflict: "user_id" });
+    let macrosSkipped = false;
+    if (error && /(protein_g_goal|carb_g_goal|fat_g_goal)/.test(error.message)) {
+      // Colonnes macros pas encore créées (macros.sql non exécuté) : repli sans macros
+      ({ error } = await supabase.from("user_goals").upsert(base, { onConflict: "user_id" }));
+      macrosSkipped = !error;
+    }
     if (error) return toast("Erreur : " + error.message, "err");
-    closeModal(overlay); toast("Objectif enregistré", "ok"); onSaved && onSaved();
+    closeModal(overlay);
+    toast(macrosSkipped ? "Objectif enregistré (macros : exécutez macros.sql)" : "Objectif enregistré", "ok");
+    onSaved && onSaved();
   };
 }
 

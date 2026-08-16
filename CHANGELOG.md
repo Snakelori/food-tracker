@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.8.1] — 2026-08-08
+### Ajouté — Bilan énergétique & objectifs de macros
+- **⚖️ Bilan du jour** dans la Journée : kcal **ingérées − dépensées = solde net**,
+  jauge de progression vs objectif calorique.
+- **Objectifs de macros** (protéines / glucides / lipides) dans 🎯 Objectif, avec barres
+  de progression du jour. À activer via `supabase/macros.sql` (repli automatique sinon).
+
 ## [2.8.0] — 2026-08-08
 ### Ajouté — Saisie plus rapide
 - **⭐ Fréquents** : le sélecteur d'aliment ouvre sur vos produits les plus utilisés

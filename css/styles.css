@@ -621,3 +621,19 @@ body {
 
 /* Estimation calories activité */
 .act-cal-hint { font-size: 11.5px; color: var(--green-deep); font-weight: 600; margin-top: 6px; min-height: 14px; }
+
+/* ---------- Bilan du jour (balance énergétique + macros) ---------- */
+.balance-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; font-size: 15px; }
+.balance-row b { font-size: 20px; font-weight: 800; }
+.balance-row small { display: block; font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+.balance-row .op { font-size: 18px; color: var(--ink-soft); font-weight: 700; }
+.balance-net { color: var(--green-deep); text-align: center; }
+.balance-net small { color: var(--green-deep); }
+.goal-bar { height: 10px; background: var(--green-soft); border-radius: 20px; overflow: hidden; margin-top: 4px; }
+.goal-bar-fill { height: 100%; background: var(--green); border-radius: 20px; transition: width .3s; }
+.goal-bar-fill.over { background: var(--peach); }
+.macro-goals { display: grid; gap: 10px; margin-top: 14px; }
+.mg-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.mg-bar { height: 8px; background: var(--green-soft); border-radius: 20px; overflow: hidden; }
+.mg-fill { height: 100%; background: var(--green-deep); border-radius: 20px; transition: width .3s; }
+.mg-fill.over { background: var(--peach); }
