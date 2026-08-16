@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.7.4] — 2026-08-08
+### Enrichi — Plats français classiques
+- **Plats préparés** : +33 classiques — cassoulet, coq au vin, bœuf carottes, navarin
+  d'agneau, daube, confit de canard, choucroute garnie, petit salé aux lentilles, poule
+  au pot, potée, tête de veau, tournedos Rossini, quiche lorraine, croque-monsieur/madame,
+  tarte flambée, raclette, fondue savoyarde, bouillabaisse, moules-frites, quenelles,
+  cuisses de grenouille, escargots, soupe à l'oignon, pâté en croûte, steak-frites…
+  À charger via `supabase/produits-plats-francais.sql`.
+
 ## [2.7.3] — 2026-08-08
 ### Enrichi — Viandes
 - **Protéines** : +45 produits — boulettes de viande (bœuf, veau, agneau/kefta, porc,
