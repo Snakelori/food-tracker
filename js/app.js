@@ -300,6 +300,29 @@ async function renderJournee() {
 
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
+/* Copier le repas de même type le plus récent (aliments + boissons) vers aujourd'hui. */
+async function duplicateLastMeal(mealTypeKey) {
+  const { data: prev, error: e0 } = await supabase.from("meals")
+    .select("meal_items(product_id, custom_name, quantity_kind, quantity_number), drinks(drink_type, glasses)")
+    .eq("meal_type", mealTypeKey).lt("meal_date", state.date)
+    .order("meal_date", { ascending: false }).limit(8);
+  if (e0) return toast("Erreur : " + e0.message, "err");
+  const src = (prev || []).find(m => (m.meal_items || []).length);
+  if (!src) return toast("Aucun repas précédent à copier", "err");
+  try {
+    const mealId = await ensureMeal(mealTypeKey);
+    const rows = src.meal_items.map(it => ({
+      meal_id: mealId, product_id: it.product_id, custom_name: it.custom_name,
+      quantity_kind: it.quantity_kind, quantity_number: it.quantity_number,
+    }));
+    if (rows.length) { const { error } = await supabase.from("meal_items").insert(rows); if (error) throw error; }
+    if (src.drinks?.length) await supabase.from("drinks").insert(src.drinks.map(d =>
+      ({ meal_id: mealId, log_date: state.date, drink_type: d.drink_type, glasses: d.glasses })));
+    toast(`Repas copié (${rows.length} aliment${rows.length > 1 ? "s" : ""})`, "ok");
+    renderJournee();
+  } catch (e) { toast("Erreur : " + e.message, "err"); }
+}
+
 /* Rendu d'une carte de repas (repas principal OU encas).
    opts.addItem / opts.addDrink = attributs data-* des boutons d'ajout. */
 function mealCardHtml(mt, meal, mealDrinks, opts = {}) {
@@ -330,6 +353,8 @@ function mealCardHtml(mt, meal, mealDrinks, opts = {}) {
     }).join("") + `</ul>`;
   } else {
     h += `<p class="empty-hint">Rien pour l'instant.</p>`;
+    if (mt.key !== "encas")
+      h += `<div class="add-line"><button class="btn btn-ghost btn-sm" data-repeat="${mt.key}">📋 Comme la dernière fois</button></div>`;
   }
   const mealNutri = emptyNutri();
   for (const it of items) addNutri(mealNutri, itemNutrition(it));
@@ -411,6 +436,8 @@ function wireJourneeEvents() {
     b.onclick = () => openAddItemModal("encas", { mealId: b.dataset.addItemMeal }));
   const encasBtn = panel.querySelector("[data-add-encas]");
   if (encasBtn) encasBtn.onclick = () => openAddItemModal("encas", { forceNew: true });
+  panel.querySelectorAll("[data-repeat]").forEach(b =>
+    b.onclick = () => duplicateLastMeal(b.dataset.repeat));
   panel.querySelectorAll("[data-add-drink]").forEach(b =>
     b.onclick = () => openAddDrinkModal(b.dataset.addDrink));
   panel.querySelectorAll("[data-add-drink-meal]").forEach(b =>
@@ -514,8 +541,26 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
     allProducts.push({ ...p, _cat: c.name });
   }
 
-  catTabs.innerHTML = state.categories.map(c =>
-    `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
+  // ⭐ Aliments les plus fréquents (60 derniers jours) — accès rapide
+  let favProducts = [];
+  try {
+    const { data: fm } = await supabase.from("meals")
+      .select("meal_items(product_id)").gte("meal_date", dateDaysAgo(60));
+    const cnt = new Map();
+    (fm || []).forEach(m => (m.meal_items || []).forEach(it => {
+      if (it.product_id) cnt.set(it.product_id, (cnt.get(it.product_id) || 0) + 1);
+    }));
+    const byIdCat = new Map(allProducts.map(p => [p.id, p]));
+    favProducts = [...cnt.entries()].sort((a, b) => b[1] - a[1])
+      .map(([id]) => byIdCat.get(id)).filter(Boolean).slice(0, 24);
+  } catch { /* pas bloquant */ }
+  const FAV = "__fav__";
+  if (favProducts.length) activeCat = FAV;
+
+  catTabs.innerHTML =
+    (favProducts.length ? `<button class="cat-tab ${activeCat === FAV ? "active" : ""}" data-cat="${FAV}">⭐ Fréquents</button>` : "") +
+    state.categories.map(c =>
+      `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
 
   const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   function renderProducts() {
@@ -524,16 +569,17 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
     catTabs.style.display = searching ? "none" : "";           // masque les onglets pendant la recherche
     const list = searching
       ? allProducts.filter(p => norm(p.name).includes(q)).slice(0, 60)
-      : (state.productsByCat[activeCat] || []);
+      : (activeCat === FAV ? favProducts : (state.productsByCat[activeCat] || []));
+    const showCat = searching || activeCat === FAV;   // libellé catégorie en Fréquents aussi
     grid.innerHTML = list.length ? list.map(p => {
       const kc = portionKcal(p);
       return `<button class="product-btn ${selected.has(p.id) ? "selected" : ""}" data-prod="${p.id}">
         <span class="pe">${p.emoji || "🍴"}</span>${esc(p.name)}
-        ${searching && p._cat ? `<span class="pcat">${esc(p._cat)}</span>` : ""}
+        ${showCat && p._cat ? `<span class="pcat">${esc(p._cat)}</span>` : ""}
         ${kc != null ? `<span class="pkcal">${kc} kcal</span>` : ""}
         ${selected.has(p.id) ? '<span class="pick-check">✓</span>' : ""}</button>`;
     }).join("")
-      : `<p class="empty-hint">${searching ? "Aucun aliment trouvé pour « " + esc(q) + " »." : "Aucun produit. Ajoutez-en dans Réglages."}</p>`;
+      : `<p class="empty-hint">${searching ? "Aucun aliment trouvé pour « " + esc(q) + " »." : (activeCat === FAV ? "Vos aliments fréquents apparaîtront ici au fil de vos saisies." : "Aucun produit. Ajoutez-en dans Réglages.")}</p>`;
     grid.querySelectorAll("[data-prod]").forEach(b => b.onclick = () => {
       const id = b.dataset.prod;
       if (selected.has(id)) selected.delete(id);

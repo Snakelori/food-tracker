@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.8.0] — 2026-08-08
+### Ajouté — Saisie plus rapide
+- **⭐ Fréquents** : le sélecteur d'aliment ouvre sur vos produits les plus utilisés
+  (60 derniers jours) pour un ajout en un tap.
+- **📋 « Comme la dernière fois »** : sur un repas vide, un bouton recopie le dernier repas
+  du même type (aliments + boissons) en un clic.
+
 ## [2.7.8] — 2026-08-08
 ### Enrichi
 - **Glaces** : ajout des **Magnum** nommés (classique, amande, chocolat blanc, double
