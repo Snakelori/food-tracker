@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.8.3] — 2026-08-08
+### Enrichi — Tartares
+- **Protéines** : steak tartare, tartare de bœuf (+ aller-retour), de cheval, de veau.
+- **Poissons & fruits de mer** : tartare de saumon, saumon-avocat, thon, dorade, bar,
+  Saint-Jacques. **Légumes** : tartare d'avocat, de tomates.
+- À charger via `supabase/produits-tartares.sql`.
+
 ## [2.8.2] — 2026-08-08
 ### Ajouté — Scan de code-barres 📷
 - Dans l'ajout d'aliment : **« Scanner un code-barres »**. Le produit est récupéré depuis
