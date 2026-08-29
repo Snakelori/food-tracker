@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.8.4] — 2026-08-08
+### Enrichi
+- **Avocats** : demi-avocat, avocado toast, avocat crevettes, avocat vinaigrette, salade
+  d'avocat. **Bo bun** : bœuf, poulet, nems, crevettes. À charger via
+  `supabase/produits-avocat-bobun.sql`. (Le kebab était déjà présent.)
+
 ## [2.8.3] — 2026-08-08
 ### Enrichi — Tartares
 - **Protéines** : steak tartare, tartare de bœuf (+ aller-retour), de cheval, de veau.
