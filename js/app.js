@@ -32,6 +32,7 @@ const FEELINGS = [
   { v: 5, e: "😀", l: "Très bien" },
 ];
 const SYMPTOMS = ["Ballonnement","Lourdeur","Fatigue","Somnolence","Mal de tête","Nausée","Acidité","Faim rapide","Léger / en forme"];
+const GENERAL_STATES = [["Normal","🙂"],["Inconfort intestinal","😣"],["Grosse fatigue","😴"],["Douleur tête","🤕"],["Manque d'appétit","🚫"]];
 const STATS_PERIODS = [{ k: 7, l: "7 jours" }, { k: 30, l: "30 jours" }, { k: 90, l: "90 jours" }, { k: 0, l: "Tout" }];
 
 /* ---------- État global ---------- */
@@ -1004,6 +1005,7 @@ function openBarcodeModal(defaultCatId, onCreated) {
 async function openHealthModal() {
   let feeling = 3;
   const chosenSymptoms = new Set();
+  const chosenStates = new Set();
   // Repas du jour pour rattacher l'observation
   const { data: meals } = await supabase.from("meals")
     .select("id, meal_type, meal_time").eq("meal_date", state.date);
@@ -1016,6 +1018,10 @@ async function openHealthModal() {
     <div class="field"><label>Ressenti général</label>
       <div class="feeling-row" id="feeling-row">
         ${FEELINGS.map(f => `<button class="feeling-opt ${f.v === 3 ? "selected" : ""}" data-f="${f.v}">${f.e}<span class="fl">${f.l}</span></button>`).join("")}
+      </div></div>
+    <div class="field"><label>État général</label>
+      <div class="chip-row" id="state-row">
+        ${GENERAL_STATES.map(([s, e]) => `<button class="chip" data-st="${esc(s)}">${e} ${esc(s)}</button>`).join("")}
       </div></div>
     <div class="field"><label>Après quel repas ? (optionnel)</label>
       <select id="h-meal"><option value="">— Aucun / général —</option>${mealOptions}</select></div>
@@ -1044,9 +1050,15 @@ async function openHealthModal() {
     if (chosenSymptoms.has(s)) { chosenSymptoms.delete(s); b.classList.remove("selected"); }
     else { chosenSymptoms.add(s); b.classList.add("selected"); }
   });
+  const str = overlay.querySelector("#state-row");
+  str.querySelectorAll("[data-st]").forEach(b => b.onclick = () => {
+    const s = b.dataset.st;
+    if (chosenStates.has(s)) { chosenStates.delete(s); b.classList.remove("selected"); }
+    else { chosenStates.add(s); b.classList.add("selected"); }
+  });
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
   overlay.querySelector("#save-health").onclick = async () => {
-    const row = {
+    const base = {
       log_date: state.date,
       meal_id: overlay.querySelector("#h-meal").value || null,
       log_time: overlay.querySelector("#h-time").value || null,
@@ -1055,7 +1067,12 @@ async function openHealthModal() {
       symptoms: [...chosenSymptoms],
       description: overlay.querySelector("#h-desc").value.trim() || null,
     };
-    const { error } = await supabase.from("health_states").insert(row);
+    const row = { ...base, general_state: [...chosenStates] };
+    let { error } = await supabase.from("health_states").insert(row);
+    if (error && /general_state/.test(error.message)) {
+      // Colonne pas encore créée (etat-general.sql non exécuté) : repli
+      ({ error } = await supabase.from("health_states").insert(base));
+    }
     if (error) return toast("Erreur : " + error.message, "err");
     closeModal(overlay); toast("Bien-être enregistré", "ok"); renderBienetre();
   };
@@ -1087,6 +1104,7 @@ async function renderBienetre() {
           </div>
           <button class="item-del" data-del-health="${h.id}">✕</button>
         </div>
+        ${h.general_state?.length ? `<div class="pill-row">${h.general_state.map(s => `<span class="pill">${esc(s)}</span>`).join("")}</div>` : ""}
         ${h.symptoms?.length ? `<div class="pill-row">${h.symptoms.map(s => `<span class="pill act">${esc(s)}</span>`).join("")}</div>` : ""}
         ${h.description ? `<p class="history-line" style="margin-top:10px">${esc(h.description)}</p>` : ""}
       </div>`;

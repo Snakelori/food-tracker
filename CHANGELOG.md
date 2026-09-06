@@ -3,6 +3,17 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.9.0] — 2026-08-08
+### Ajouté
+- **État général** (multi-choix) dans le bien-être : Normal, Inconfort intestinal, Grosse
+  fatigue, Douleur tête, Manque d'appétit. Affiché dans la Journée du bien-être.
+  À activer via `supabase/etat-general.sql` (repli auto si non exécuté).
+### Enrichi
+- **Cocktails & alcools** : +35 boissons apéro — Sex on the beach, Tequila sunrise, Blue
+  lagoon, Daiquiri, Mai tai, Long Island, Bloody Mary, Aperol Spritz, Negroni, Moscow mule,
+  Bellini, Mimosa, Monaco, Panaché, Baileys, Limoncello… À charger via
+  `supabase/produits-cocktails-apero.sql`.
+
 ## [2.8.4] — 2026-08-08
 ### Enrichi
 - **Avocats** : demi-avocat, avocado toast, avocat crevettes, avocat vinaigrette, salade
