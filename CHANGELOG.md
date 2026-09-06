@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.9.1] — 2026-08-08
+### Ajouté — État général dans les Analyses
+- Carte **🩹 État général le plus fréquent** (Normal, inconfort intestinal, fatigue…).
+- Carte **⚠️ Aliments souvent suivis d'un inconfort** : part des observations « pas normal »
+  après chaque aliment (corrélation, ≥ 2 observations).
+
 ## [2.9.0] — 2026-08-08
 ### Ajouté
 - **État général** (multi-choix) dans le bien-être : Normal, Inconfort intestinal, Grosse

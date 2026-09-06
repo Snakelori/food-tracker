@@ -1181,7 +1181,7 @@ async function renderAnalyses() {
 
   const [mealsRes, healthRes, drinksRes, actsRes, wRes, gRes] = await Promise.all([
     supabase.from("meals").select("id, meal_date, meal_type, meal_items(custom_name, quantity_kind, quantity_number, products(name,emoji,category_id,energy_kcal,carb_g,sugar_g,fat_g,protein_g,salt_g,portion_g))").gte("meal_date", from),
-    supabase.from("health_states").select("meal_id, log_date, feeling, symptoms").gte("log_date", from),
+    supabase.from("health_states").select("*").gte("log_date", from),
     supabase.from("drinks").select("drink_type, glasses, log_date").gte("log_date", from),
     supabase.from("activities").select("activity_date, duration_min, calories").gte("activity_date", from),
     supabase.from("weights").select("log_date, weight_kg").order("log_date"),
@@ -1290,6 +1290,28 @@ async function renderAnalyses() {
     .map(([name, v]) => ({ name, emoji: v.emoji, n: v.feelings.length, avg: average(v.feelings) }));
   const watch = scored.filter(s => s.avg <= 2.5).sort((a, b) => a.avg - b.avg).slice(0, 8);
   const good = scored.filter(s => s.avg >= 4).sort((a, b) => b.avg - a.avg).slice(0, 8);
+
+  // État général : fréquence + corrélation aliment ↔ inconfort
+  const stateFreq = new Map(), foodState = new Map();
+  for (const h of health) {
+    const gs = h.general_state || [];
+    if (!gs.length) continue;
+    for (const s of gs) stateFreq.set(s, (stateFreq.get(s) || 0) + 1);
+    const bad = gs.some(s => s !== "Normal");
+    const prods = h.meal_id ? (mealById[h.meal_id] || []) : (productsByDate[h.log_date] || []);
+    const seen = new Set();
+    for (const p of prods) {
+      if (seen.has(p.name)) continue; seen.add(p.name);
+      const e = foodState.get(p.name) || { emoji: p.emoji, total: 0, bad: 0 };
+      e.total++; if (bad) e.bad++; foodState.set(p.name, e);
+    }
+  }
+  const topStates = [...stateFreq.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
+  const maxState = topStates[0]?.count || 1;
+  const stateWatch = [...foodState.entries()]
+    .filter(([, v]) => v.total >= MIN_OBS && v.bad > 0)
+    .map(([name, v]) => ({ name, emoji: v.emoji, n: v.total, bad: v.bad, rate: v.bad / v.total }))
+    .sort((a, b) => b.rate - a.rate || b.bad - a.bad).slice(0, 8);
 
   const topFoods = [...foodFreq.entries()].map(([name, v]) => ({ name, emoji: v.emoji, count: v.count }))
     .sort((a, b) => b.count - a.count).slice(0, 8);
@@ -1466,6 +1488,21 @@ async function renderAnalyses() {
     html += `<div class="analysis-card">
       <h3>🩺 Symptômes les plus fréquents</h3>
       ${topSym.map(s => bar(esc(s.name), s.count, maxSym, { cls: "warn", right: `${s.count}×` })).join("")}</div>`;
+  }
+
+  // État général — fréquence
+  if (topStates.length) {
+    html += `<div class="analysis-card">
+      <h3>🩹 État général le plus fréquent</h3>
+      ${topStates.map(s => bar(esc(s.name), s.count, maxState, { cls: s.name === "Normal" ? "" : "warn", right: `${s.count}×` })).join("")}</div>`;
+  }
+
+  // État général — aliments associés à un inconfort
+  if (stateWatch.length) {
+    html += `<div class="analysis-card">
+      <h3>⚠️ Aliments souvent suivis d'un inconfort</h3>
+      <div class="sub">Part des observations « pas normal » après cet aliment (≥ ${MIN_OBS} observations).</div>
+      ${stateWatch.map(s => bar(`${s.emoji} ${esc(s.name)}`, s.bad, s.n, { cls: "warn", right: `${s.bad}/${s.n} (${Math.round(s.rate * 100)}%)` })).join("")}</div>`;
   }
 
   // Activité
