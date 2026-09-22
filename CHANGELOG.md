@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.9.4] — 2026-09-22
+### Enrichi
+- **Restaurant japonais** : variantes de **chirashi** (saumon, thon, mixte, saumon-avocat,
+  crevettes, végétarien). À charger via `supabase/produits-chirashi.sql`.
+
 ## [2.9.3] — 2026-09-22
 ### Corrigé
 - **Recherche des ligatures** : taper « oeuf » trouve désormais « Œuf » (conversion œ→oe,
