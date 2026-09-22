@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.9.5] — 2026-09-22
+### Enrichi
+- **Restaurant japonais** : salades japonaises (sésame-gingembre, algues/wakamé, chou,
+  concombre/sunomono, edamame, poulpe/tako su, chou au sésame). À charger via
+  `supabase/produits-salade-japonaise.sql`.
+
 ## [2.9.4] — 2026-09-22
 ### Enrichi
 - **Restaurant japonais** : variantes de **chirashi** (saumon, thon, mixte, saumon-avocat,
