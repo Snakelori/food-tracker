@@ -593,7 +593,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
     state.categories.map(c =>
       `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
 
-  const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const norm = s => (s || "").toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[̀-ͯ]/g, "");
   function renderProducts() {
     const q = norm(searchInput.value.trim());
     const searching = q.length > 0;
@@ -2131,7 +2131,7 @@ async function openProductManager() {
   }
   productManagerRefresh = load;
 
-  const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const norm = s => (s || "").toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[̀-ͯ]/g, "");
   function render() {
     const q = norm(search.value.trim());
     const rows = all.filter(p => !q || norm(p.name).includes(q));

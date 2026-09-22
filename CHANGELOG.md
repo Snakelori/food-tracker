@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.9.3] — 2026-09-22
+### Corrigé
+- **Recherche des ligatures** : taper « oeuf » trouve désormais « Œuf » (conversion œ→oe,
+  æ→ae dans le sélecteur d'aliment et le gestionnaire de produits).
+
 ## [2.9.2] — 2026-09-22
 ### Enrichi — Œufs
 - **Protéines** : +18 préparations d'œufs — au plat, brouillés, dur, poché, à la coque,
