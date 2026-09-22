@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.9.2] — 2026-09-22
+### Enrichi — Œufs
+- **Protéines** : +18 préparations d'œufs — au plat, brouillés, dur, poché, à la coque,
+  mollet, cocotte, mayonnaise, poêlé, omelettes (fromage, champignons, jambon, fines herbes),
+  œufs bénédicte, frittata, tortilla, florentine, œuf de caille. (« Œufs » et « Omelette »
+  étaient déjà présents.) À charger via `supabase/produits-oeufs.sql`.
+
 ## [2.9.1] — 2026-08-08
 ### Ajouté — État général dans les Analyses
 - Carte **🩹 État général le plus fréquent** (Normal, inconfort intestinal, fatigue…).
