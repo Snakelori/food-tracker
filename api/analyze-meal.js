@@ -29,10 +29,17 @@ module.exports = async (req, res) => {
     let media_type = body && body.media_type;
     if (!image) { res.status(400).json({ error: "Aucune image fournie." }); return; }
 
-    // Retirer le préfixe data:URL éventuel
-    const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(image);
-    if (m) { media_type = m[1]; image = m[2]; }
-    media_type = media_type || "image/jpeg";
+    // Retirer le préfixe data:URL éventuel (tout type), robuste
+    if (typeof image === "string" && image.startsWith("data:")) {
+      const idx = image.indexOf("base64,");
+      if (idx !== -1) {
+        const mt = image.slice(5, idx).split(";")[0];
+        if (mt) media_type = mt;
+        image = image.slice(idx + 7);
+      }
+    }
+    image = String(image).replace(/\s/g, "");                 // enlever espaces / sauts de ligne
+    if (!/^image\//.test(media_type || "")) media_type = "image/jpeg";
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
