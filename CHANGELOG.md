@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.0] — 2026-09-25
+### Ajouté — Analyse d'un repas par photo 📸
+- Bouton **« Analyser une photo du repas »** : la photo est analysée par **Claude (vision)**
+  qui identifie les aliments + estime les valeurs nutritionnelles ; vous validez la liste et
+  c'est ajouté au repas (réutilise les aliments connus, sinon les crée).
+- Fonction serverless **Vercel** `api/analyze-meal.js` (clé API côté serveur). Modèle par
+  défaut `claude-sonnet-5`, configurable via `ANTHROPIC_MODEL`.
+- Mise en place : `docs/PHOTO-IA.md` (créer une clé Anthropic + variable Vercel `ANTHROPIC_API_KEY`).
+
 ## [2.9.5] — 2026-09-22
 ### Enrichi
 - **Restaurant japonais** : salades japonaises (sésame-gingembre, algues/wakamé, chou,

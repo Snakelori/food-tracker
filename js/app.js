@@ -543,7 +543,8 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
       <input type="time" id="item-time" value="${defaultTime}"></div>
     <p class="pick-hint">Touchez les aliments pour en choisir <b>plusieurs</b> (recherche ou navigation par catégorie).</p>
     <input type="text" id="prod-search" class="prod-search" placeholder="🔍 Rechercher un aliment (toutes catégories)…" />
-    <button class="btn btn-soft btn-sm btn-block" id="scan-barcode" type="button" style="margin-bottom:10px">📷 Scanner un code-barres</button>
+    <button class="btn btn-soft btn-sm btn-block" id="scan-barcode" type="button" style="margin-bottom:8px">📷 Scanner un code-barres</button>
+    <button class="btn btn-soft btn-sm btn-block" id="photo-meal" type="button" style="margin-bottom:10px">📸 Analyser une photo du repas</button>
     <div class="cat-tabs" id="cat-tabs"></div>
     <div class="product-grid" id="product-grid"></div>
     <div class="field" style="margin-top:8px"><label>… ou ajouter un aliment libre</label>
@@ -690,6 +691,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
   customInput.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } };
 
   // 📷 Scan code-barres → Open Food Facts → produit ajouté au catalogue + sélection
+  overlay.querySelector("#photo-meal").onclick = () => openPhotoMealModal(mealTypeKey, opts);
   overlay.querySelector("#scan-barcode").onclick = () => openBarcodeModal(activeCat === FAV ? state.categories[0]?.id : activeCat, (prod) => {
     prodById.set(prod.id, prod);
     allProducts.push({ ...prod, _cat: catName(prod.category_id) });
@@ -997,6 +999,134 @@ function openBarcodeModal(defaultCatId, onCreated) {
       }
     }
   };
+}
+
+/* ============================================================
+   MODALE : ANALYSE D'UNE PHOTO DE REPAS (Claude vision)
+   ============================================================ */
+function compressImage(file, maxDim = 1024, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(cv.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image illisible")); };
+    img.src = url;
+  });
+}
+
+function findCatalogProduct(name) {
+  const norm = s => (s || "").toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const q = norm(name);
+  if (!q) return null;
+  for (const c of state.categories) for (const p of (state.productsByCat[c.id] || []))
+    if (norm(p.name) === q && p.energy_kcal != null) return p;
+  return null;
+}
+
+function openPhotoMealModal(mealTypeKey, opts = {}) {
+  const cats = state.categories;
+  const defaultCat = cats.find(c => c.name === "Plats préparés")?.id || cats[0]?.id;
+  const overlay = openModal(`
+    <div class="modal-head"><h2>📸 Analyser une photo</h2><button class="modal-close">✕</button></div>
+    <p class="pick-hint">Prenez ou choisissez une photo de votre repas : l'IA propose les aliments et leurs valeurs (à vérifier).</p>
+    <input type="file" id="pm-file" accept="image/*" capture="environment" style="display:none">
+    <button class="btn btn-soft btn-block" id="pm-pick" type="button">📷 Prendre / choisir une photo</button>
+    <div id="pm-preview"></div>
+    <div id="pm-result"></div>
+    <p class="muted" style="font-size:.8em;margin-top:10px">🔒 La photo est envoyée à Claude (Anthropic) pour analyse, puis oubliée (non stockée). Valeurs estimées, à ajuster.</p>
+  `);
+  const fileEl = overlay.querySelector("#pm-file");
+  const previewEl = overlay.querySelector("#pm-preview");
+  const resultEl = overlay.querySelector("#pm-result");
+  overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
+  overlay.querySelector("#pm-pick").onclick = () => fileEl.click();
+
+  fileEl.onchange = async () => {
+    const file = fileEl.files && fileEl.files[0];
+    if (!file) return;
+    resultEl.innerHTML = "";
+    let dataUrl;
+    try { dataUrl = await compressImage(file); }
+    catch { resultEl.innerHTML = `<p class="empty-hint">Image illisible, réessayez.</p>`; return; }
+    previewEl.innerHTML = `<img src="${dataUrl}" class="pm-img" alt="repas">`;
+    resultEl.innerHTML = `<p class="empty-hint">🔎 Analyse en cours… (quelques secondes)</p>`;
+    let data;
+    try {
+      const r = await fetch("/api/analyze-meal", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      data = await r.json();
+      if (!r.ok) throw new Error(data && data.error ? data.error : "Erreur serveur");
+    } catch (e) {
+      resultEl.innerHTML = `<p class="empty-hint">Erreur : ${esc(String(e.message || e))}<br>
+        <span class="muted">La fonction serveur est-elle déployée avec la clé <code>ANTHROPIC_API_KEY</code> ? (ne fonctionne pas en aperçu local)</span></p>`;
+      return;
+    }
+    const items = (data.items || []).filter(it => it && it.name);
+    if (!items.length) { resultEl.innerHTML = `<p class="empty-hint">Aucun aliment détecté. Réessayez avec une photo plus nette / cadrée sur le plat.</p>`; return; }
+    renderItems(items);
+  };
+
+  function renderItems(items) {
+    resultEl.innerHTML = `<div class="pm-list">` + items.map((it, i) => {
+      const kc = Math.round(it.kcal || 0);
+      const conf = it.confidence != null ? Math.round(it.confidence * 100) : null;
+      return `<label class="pm-item">
+        <input type="checkbox" data-i="${i}" checked>
+        <span class="pm-emoji">${it.emoji || "🍽️"}</span>
+        <span class="pm-name">${esc(it.name)}${conf != null && conf < 55 ? ` <span class="pm-doubt">?</span>` : ""}</span>
+        <span class="pm-kcal">${kc} kcal${it.grams ? ` · ${Math.round(it.grams)} g` : ""}</span>
+      </label>`;
+    }).join("") + `</div>
+      <div class="field" style="margin-top:10px"><label>Ranger les nouveaux aliments dans</label>
+        <select id="pm-cat">${cats.map(c => `<option value="${c.id}" ${c.id === defaultCat ? "selected" : ""}>${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
+      <button class="btn btn-primary btn-block" id="pm-add">➕ Ajouter au repas</button>`;
+
+    resultEl.querySelector("#pm-add").onclick = async () => {
+      const checked = [...resultEl.querySelectorAll(".pm-item input:checked")].map(c => items[Number(c.dataset.i)]);
+      if (!checked.length) return toast("Sélectionnez au moins un aliment", "err");
+      const catId = resultEl.querySelector("#pm-cat").value;
+      const btn = resultEl.querySelector("#pm-add"); btn.disabled = true;
+      try {
+        const mealId = opts.mealId || await ensureMeal(mealTypeKey, opts.forceNew);
+        const rows = [];
+        for (const it of checked) {
+          const match = findCatalogProduct(it.name);
+          let productId;
+          if (match) {
+            productId = match.id;
+          } else {
+            const grams = Math.round(it.grams) || 100;
+            const per = k => grams ? Math.round(((it[k] || 0) * 100 / grams) * 10) / 10 : (it[k] || 0);
+            const { data: prod, error } = await supabase.from("products").insert({
+              user_id: state.user.id, category_id: catId, name: it.name, emoji: it.emoji || "📸",
+              energy_kcal: grams ? Math.round((it.kcal || 0) * 100 / grams) : (it.kcal || 0),
+              carb_g: per("carb_g"), sugar_g: per("sugar_g"), fat_g: per("fat_g"),
+              protein_g: per("protein_g"), salt_g: per("salt_g"), portion_g: grams,
+            }).select().single();
+            if (error) throw error;
+            productId = prod.id;
+          }
+          rows.push({ meal_id: mealId, product_id: productId, quantity_kind: "moyenne", quantity_number: null });
+        }
+        const { error } = await supabase.from("meal_items").insert(rows);
+        if (error) throw error;
+        el("modal-root").innerHTML = "";   // ferme photo + saisie d'aliment
+        toast(`${rows.length} aliment${rows.length > 1 ? "s" : ""} ajouté${rows.length > 1 ? "s" : ""} 📸`, "ok");
+        renderJournee();
+      } catch (e) { toast("Erreur : " + e.message, "err"); btn.disabled = false; }
+    };
+  }
 }
 
 /* ============================================================
