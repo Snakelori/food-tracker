@@ -1095,17 +1095,21 @@ function openPhotoMealModal(mealTypeKey, opts = {}) {
     resultEl.querySelector("#pm-add").onclick = async () => {
       const checked = [...resultEl.querySelectorAll(".pm-item input:checked")].map(c => items[Number(c.dataset.i)]);
       if (!checked.length) return toast("Sélectionnez au moins un aliment", "err");
-      const catId = resultEl.querySelector("#pm-cat").value;
+      const isUuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ""));
+      const catVal = resultEl.querySelector("#pm-cat").value;
+      const catId = isUuid(catVal) ? catVal : null;
       const btn = resultEl.querySelector("#pm-add"); btn.disabled = true;
+      let step = "repas";
       try {
-        const mealId = opts.mealId || await ensureMeal(mealTypeKey, opts.forceNew);
+        const mealId = isUuid(opts.mealId) ? opts.mealId : await ensureMeal(mealTypeKey, opts.forceNew);
         const rows = [];
         for (const it of checked) {
           const match = findCatalogProduct(it.name);
           let productId;
-          if (match) {
+          if (match && isUuid(match.id)) {
             productId = match.id;
           } else {
+            step = `création de « ${it.name} »`;
             const grams = Math.round(it.grams) || 100;
             const per = k => grams ? Math.round(((it[k] || 0) * 100 / grams) * 10) / 10 : (it[k] || 0);
             const { data: prod, error } = await supabase.from("products").insert({
@@ -1119,12 +1123,16 @@ function openPhotoMealModal(mealTypeKey, opts = {}) {
           }
           rows.push({ meal_id: mealId, product_id: productId, quantity_kind: "moyenne", quantity_number: null });
         }
+        step = "ajout au repas";
         const { error } = await supabase.from("meal_items").insert(rows);
         if (error) throw error;
         el("modal-root").innerHTML = "";   // ferme photo + saisie d'aliment
         toast(`${rows.length} aliment${rows.length > 1 ? "s" : ""} ajouté${rows.length > 1 ? "s" : ""} 📸`, "ok");
         renderJournee();
-      } catch (e) { toast("Erreur : " + e.message, "err"); btn.disabled = false; }
+      } catch (e) {
+        console.error("Photo → ajout", step, e);
+        toast(`Erreur (${step}) : ${e.message}`, "err"); btn.disabled = false;
+      }
     };
   }
 }

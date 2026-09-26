@@ -3,6 +3,12 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.1] — 2026-09-26
+### Corrigé
+- Photo → « Ajouter au repas » : garde-fous sur les identifiants (catégorie, repas, aliment)
+  pour éviter l'erreur « invalid input syntax for type uuid », et message d'erreur précisant
+  l'étape en cause.
+
 ## [2.10.0] — 2026-09-25
 ### Ajouté — Analyse d'un repas par photo 📸
 - Bouton **« Analyser une photo du repas »** : la photo est analysée par **Claude (vision)**
