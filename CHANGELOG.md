@@ -3,6 +3,14 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.3] — 2026-09-26
+### Ajouté — Catalogue : tous les gâteaux 🎂
+- Nouvelle catégorie **🥧 Pâtisseries & tartes** : fraisier, opéra, forêt-noire, saint-honoré,
+  religieuses, charlottes, galette des rois, bûches, tartes aux fruits, citron meringuée…
+- **🧁 Gâteaux & goûter** enrichie : gâteaux d'anniversaire, layer/number cake, cakes,
+  carrot cake, banana bread, gâteaux du monde (red velvet, cupcake, panettone, mochi…).
+- Script `supabase/produits-gateaux-2.sql` (95 produits, sans doublon).
+
 ## [2.10.2] — 2026-09-26
 ### Amélioré
 - Analyse photo : deux boutons **📷 Prendre une photo** et **🖼️ Choisir dans la galerie**
