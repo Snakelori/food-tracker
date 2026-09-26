@@ -1038,20 +1038,27 @@ function openPhotoMealModal(mealTypeKey, opts = {}) {
   const overlay = openModal(`
     <div class="modal-head"><h2>📸 Analyser une photo</h2><button class="modal-close">✕</button></div>
     <p class="pick-hint">Prenez ou choisissez une photo de votre repas : l'IA propose les aliments et leurs valeurs (à vérifier).</p>
-    <input type="file" id="pm-file" accept="image/*" capture="environment" style="display:none">
-    <button class="btn btn-soft btn-block" id="pm-pick" type="button">📷 Prendre / choisir une photo</button>
+    <input type="file" id="pm-cam" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="pm-file" accept="image/*" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btn-soft" id="pm-shoot" type="button">📷 Prendre une photo</button>
+      <button class="btn btn-soft" id="pm-pick" type="button">🖼️ Choisir dans la galerie</button>
+    </div>
     <div id="pm-preview"></div>
     <div id="pm-result"></div>
     <p class="muted" style="font-size:.8em;margin-top:10px">🔒 La photo est envoyée à Claude (Anthropic) pour analyse, puis oubliée (non stockée). Valeurs estimées, à ajuster.</p>
   `);
   const fileEl = overlay.querySelector("#pm-file");
+  const camEl = overlay.querySelector("#pm-cam");
   const previewEl = overlay.querySelector("#pm-preview");
   const resultEl = overlay.querySelector("#pm-result");
   overlay.querySelector(".modal-close").onclick = () => closeModal(overlay);
   overlay.querySelector("#pm-pick").onclick = () => fileEl.click();
+  overlay.querySelector("#pm-shoot").onclick = () => camEl.click();
 
-  fileEl.onchange = async () => {
-    const file = fileEl.files && fileEl.files[0];
+  const onPicked = async (input) => {
+    const file = input.files && input.files[0];
+    input.value = "";                      // permet de re-choisir la même photo
     if (!file) return;
     resultEl.innerHTML = "";
     let dataUrl;
@@ -1076,6 +1083,8 @@ function openPhotoMealModal(mealTypeKey, opts = {}) {
     if (!items.length) { resultEl.innerHTML = `<p class="empty-hint">Aucun aliment détecté. Réessayez avec une photo plus nette / cadrée sur le plat.</p>`; return; }
     renderItems(items);
   };
+  fileEl.onchange = () => onPicked(fileEl);
+  camEl.onchange = () => onPicked(camEl);
 
   function renderItems(items) {
     resultEl.innerHTML = `<div class="pm-list">` + items.map((it, i) => {

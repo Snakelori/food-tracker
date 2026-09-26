@@ -37,7 +37,7 @@ La variable n'est prise en compte qu'après un redéploiement :
 
 ## Étape 4 — Tester
 
-Dans l'app : ajoutez un aliment → **📸 Analyser une photo** → prenez une photo d'un plat →
+Dans l'app : ajoutez un aliment → **📸 Analyser une photo** → **📷 Prendre une photo** ou **🖼️ Choisir dans la galerie** →
 l'app propose la liste des aliments détectés → cochez ce qui est juste → **Ajouter au repas**.
 
 ---

@@ -3,6 +3,11 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.2] — 2026-09-26
+### Amélioré
+- Analyse photo : deux boutons **📷 Prendre une photo** et **🖼️ Choisir dans la galerie**
+  (sur iPhone, l'ancien bouton ouvrait directement l'appareil photo).
+
 ## [2.10.1] — 2026-09-26
 ### Corrigé
 - Photo → « Ajouter au repas » : garde-fous sur les identifiants (catégorie, repas, aliment)
