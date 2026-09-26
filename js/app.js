@@ -180,10 +180,22 @@ function showApp() { el("auth-view").classList.add("hidden"); el("app-view").cla
 /* ============================================================
    CATALOGUE (catégories + produits)
    ============================================================ */
+/* Supabase renvoie au plus 1000 lignes par requête : on lit par pages.
+   build() doit renvoyer une requête NEUVE (avec un tri stable). */
+async function fetchAll(build, pageSize = 1000) {
+  const all = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) return { data: all.length ? all : null, error };
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) return { data: all, error: null };
+  }
+}
+
 async function loadCatalog() {
   const [{ data: cats }, { data: prods }] = await Promise.all([
     supabase.from("categories").select("*").order("sort_order"),
-    supabase.from("products").select("*").eq("is_active", true).order("name"),
+    fetchAll(() => supabase.from("products").select("*").eq("is_active", true).order("name").order("id")),
   ]);
   state.categories = cats || [];
   state.productsByCat = {};
@@ -2123,7 +2135,7 @@ async function exportAllData() {
     data: {},
   };
   for (const t of tables) {
-    const { data, error } = await supabase.from(t).select("*");
+    const { data, error } = await fetchAll(() => supabase.from(t).select("*").order("id"));
     dump.data[t] = error ? { error: error.message } : data;
   }
   downloadBlob(new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" }),
@@ -2272,7 +2284,7 @@ async function openProductManager() {
 
   async function load() {
     if (!document.body.contains(listEl)) return;
-    const { data } = await supabase.from("products").select("*, categories(name,emoji)").order("name");
+    const { data } = await fetchAll(() => supabase.from("products").select("*, categories(name,emoji)").order("name").order("id"));
     all = data || [];
     render();
   }

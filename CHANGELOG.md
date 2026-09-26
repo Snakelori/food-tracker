@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.4] — 2026-09-26
+### Corrigé
+- Catalogue incomplet : Supabase limite chaque requête à 1000 lignes et le catalogue
+  dépasse désormais ce nombre → les derniers aliments n'apparaissaient pas (ex. nouveaux
+  gâteaux). Chargement désormais **par pages** (catalogue, gestionnaire de produits,
+  export des données).
+
 ## [2.10.3] — 2026-09-26
 ### Ajouté — Catalogue : tous les gâteaux 🎂
 - Nouvelle catégorie **🥧 Pâtisseries & tartes** : fraisier, opéra, forêt-noire, saint-honoré,
