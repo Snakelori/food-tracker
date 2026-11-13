@@ -5,6 +5,8 @@ estime leurs valeurs nutritionnelles → vous validez → c'est ajouté au repas
 
 - Bouton **« 📸 Analyser une photo du repas »** dans l'ajout d'aliment.
 - La clé API reste **côté serveur** (fonction Vercel `api/analyze-meal.js`) — jamais dans le navigateur.
+- La fonction n'accepte que les utilisateurs **connectés** (jeton Supabase vérifié) : personne
+  d'autre ne peut consommer votre clé.
 - La photo est envoyée à Anthropic pour analyse puis **non stockée**.
 
 ---
@@ -24,6 +26,11 @@ estime leurs valeurs nutritionnelles → vous validez → c'est ajouté au repas
    | Name | Value |
    |---|---|
    | `ANTHROPIC_API_KEY` | votre clé `sk-ant-...` |
+   | `SUPABASE_URL` | la même URL que dans `config.js` |
+   | `SUPABASE_ANON_KEY` | la même clé *anon public* que dans `config.js` |
+
+   🔒 Les deux variables Supabase servent à vérifier que l'appel vient d'un utilisateur
+   **connecté** : sans elles, la fonction refuse tout (aucun appel à Claude).
 
    *(Optionnel)* pour plus de précision, ajoutez aussi `ANTHROPIC_MODEL` = `claude-opus-5`
    (plus cher, ~2–3 centimes/photo). Sinon le défaut `claude-sonnet-5` est parfait.
@@ -45,7 +52,9 @@ l'app propose la liste des aliments détectés → cochez ce qui est juste → *
 ## Bon à savoir
 
 - **Coût** : à votre charge, sur votre compte Anthropic. ~1 centime/photo en Sonnet.
-  Vous pouvez fixer une **limite de dépense** dans la console Anthropic (Billing → Limits).
+  Fixez une **limite de dépense** dans la console Anthropic et **désactivez la recharge
+  automatique** : en cas de fuite, la perte reste plafonnée. Utilisez une clé **dédiée** à
+  cette app.
 - **Précision** : très bon pour **identifier** les plats, plus **approximatif** sur les
   quantités/calories → l'app pré-remplit, vous ajustez ensuite (✏️ sur chaque aliment).
 - **Aliments connus** : si un aliment détecté existe déjà à l'identique dans votre catalogue,

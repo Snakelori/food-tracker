@@ -5,9 +5,34 @@
 //    - ANTHROPIC_API_KEY  (obligatoire)
 //    - ANTHROPIC_MODEL    (optionnel, défaut claude-sonnet-5 ;
 //                          mettez "claude-opus-5" pour plus de précision)
+//    - SUPABASE_URL       (obligatoire — même valeur que dans config.js)
+//    - SUPABASE_ANON_KEY  (obligatoire — même valeur que dans config.js)
+//
+//  🔒 SÉCURITÉ : seuls les utilisateurs CONNECTÉS à l'application peuvent
+//  appeler cette fonction. Le navigateur envoie son jeton de session
+//  Supabase (en-tête Authorization: Bearer …) ; la fonction le fait
+//  vérifier par Supabase AVANT d'appeler Claude. Sans jeton valide → 401,
+//  et la clé Anthropic n'est jamais utilisée.
 // ============================================================
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MAX_IMAGE_B64 = 7_000_000;   // ~5 Mo d'image : au-delà, refus (évite les abus)
+
+// Vérifie le jeton de session auprès de Supabase. Renvoie l'utilisateur ou null.
+async function getUser(req) {
+  const url = process.env.SUPABASE_URL;
+  const anon = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error("SUPABASE_URL / SUPABASE_ANON_KEY manquantes (variables d'environnement Vercel).");
+  const auth = req.headers["authorization"] || "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  const r = await fetch(`${url.replace(/\/+$/, "")}/auth/v1/user`, {
+    headers: { apikey: anon, Authorization: `Bearer ${m[1]}` },
+  });
+  if (!r.ok) return null;
+  const user = await r.json();
+  return user && user.id ? user : null;
+}
 
 const SYSTEM = `Tu es un nutritionniste. On te fournit la PHOTO d'un repas.
 Identifie chaque aliment/plat visible et estime, pour la PORTION visible (pas pour 100 g),
@@ -21,6 +46,12 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "Méthode non autorisée" }); return; }
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) { res.status(500).json({ error: "ANTHROPIC_API_KEY manquante (variable d'environnement Vercel)." }); return; }
+
+  // 1) Authentification obligatoire AVANT toute utilisation de la clé Anthropic
+  let user;
+  try { user = await getUser(req); }
+  catch (e) { res.status(500).json({ error: String(e.message || e) }); return; }
+  if (!user) { res.status(401).json({ error: "Non autorisé : connectez-vous à l'application." }); return; }
 
   try {
     let body = req.body;
@@ -40,6 +71,7 @@ module.exports = async (req, res) => {
     }
     image = String(image).replace(/\s/g, "");                 // enlever espaces / sauts de ligne
     if (!/^image\//.test(media_type || "")) media_type = "image/jpeg";
+    if (image.length > MAX_IMAGE_B64) { res.status(413).json({ error: "Image trop volumineuse." }); return; }
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

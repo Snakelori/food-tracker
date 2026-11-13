@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.5] — 2026-11-13
+### Sécurité 🔒
+- Analyse photo : la fonction `api/analyze-meal` n'accepte plus que les utilisateurs
+  **connectés**. Le navigateur envoie son jeton de session Supabase ; la fonction le fait
+  vérifier par Supabase avant d'appeler Claude (sinon **401**, la clé Anthropic n'est pas utilisée).
+  Auparavant, n'importe qui connaissant l'adresse pouvait l'appeler et consommer la clé.
+- Taille d'image limitée (~5 Mo) côté serveur.
+- Nouvelles variables d'environnement Vercel **obligatoires** : `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
+
 ## [2.10.4] — 2026-09-26
 ### Corrigé
 - Catalogue incomplet : Supabase limite chaque requête à 1000 lignes et le catalogue

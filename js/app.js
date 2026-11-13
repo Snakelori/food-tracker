@@ -1080,8 +1080,13 @@ function openPhotoMealModal(mealTypeKey, opts = {}) {
     resultEl.innerHTML = `<p class="empty-hint">🔎 Analyse en cours… (quelques secondes)</p>`;
     let data;
     try {
+      // Jeton de session Supabase : la fonction serveur refuse tout appel non connecté
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess && sess.session && sess.session.access_token;
+      if (!token) throw new Error("Session expirée : reconnectez-vous.");
       const r = await fetch("/api/analyze-meal", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST",
+        headers: { "content-type": "application/json", "authorization": `Bearer ${token}` },
         body: JSON.stringify({ image: dataUrl }),
       });
       data = await r.json();
