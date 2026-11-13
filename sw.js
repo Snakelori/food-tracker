@@ -2,7 +2,7 @@
 // Stratégie « réseau d'abord » : on récupère toujours la dernière version
 // quand la connexion est là, et on retombe sur le cache uniquement hors-ligne.
 // Les appels API (Supabase, esm.sh) ne sont jamais interceptés.
-const CACHE = "journal-v2";
+const CACHE = "journal-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const ASSETS = [
   "./config.js",
   "./js/app.js",
   "./js/supabase.js",
+  "./js/sw-register.js",
   "./manifest.webmanifest",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",

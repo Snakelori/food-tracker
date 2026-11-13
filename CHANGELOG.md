@@ -3,6 +3,13 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.7] — 2026-11-13
+### Sécurité 🔒
+- En-têtes de sécurité HTTP : **CSP** (le navigateur n'accepte du code et des échanges
+  qu'avec l'app, Supabase, esm.sh et Open Food Facts), HSTS, anti-iframe, Permissions-Policy
+  (caméra et micro limités à l'app).
+- Enregistrement du service worker déplacé dans `js/sw-register.js` (plus de script intégré).
+
 ## [2.10.6] — 2026-11-13
 ### Sécurité 🔒
 - Emojis des produits, catégories et rappels désormais **échappés** à l'affichage :
