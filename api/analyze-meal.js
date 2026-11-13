@@ -7,6 +7,9 @@
 //                          mettez "claude-opus-5" pour plus de précision)
 //    - SUPABASE_URL       (obligatoire — même valeur que dans config.js)
 //    - SUPABASE_ANON_KEY  (obligatoire — même valeur que dans config.js)
+//    - ALLOWED_USER_IDS   (recommandé — UID(s) Supabase autorisés, séparés par
+//                          des virgules. Si défini, seuls ces comptes peuvent
+//                          utiliser l'analyse photo, même si un inconnu crée un compte.)
 //
 //  🔒 SÉCURITÉ : seuls les utilisateurs CONNECTÉS à l'application peuvent
 //  appeler cette fonction. Le navigateur envoie son jeton de session
@@ -52,6 +55,12 @@ module.exports = async (req, res) => {
   try { user = await getUser(req); }
   catch (e) { res.status(500).json({ error: String(e.message || e) }); return; }
   if (!user) { res.status(401).json({ error: "Non autorisé : connectez-vous à l'application." }); return; }
+
+  // 2) Liste blanche optionnelle : protège la clé Anthropic même si les inscriptions sont ouvertes
+  const allowed = (process.env.ALLOWED_USER_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (allowed.length && !allowed.includes(user.id)) {
+    res.status(403).json({ error: "Compte non autorisé à utiliser l'analyse photo." }); return;
+  }
 
   try {
     let body = req.body;

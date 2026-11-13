@@ -296,13 +296,13 @@ async function renderJournee() {
     .filter(m => m.meal_type === "encas" &&
       ((m.meal_items && m.meal_items.length) || day.drinks.some(d => d.meal_id === m.id)))
     .sort((a, b) => (a.meal_time || "").localeCompare(b.meal_time || ""));
-  html += `<div class="section-title" style="margin-top:6px">${encasMeta.emoji} Encas <span class="count">${encasMeals.length}</span></div>`;
+  html += `<div class="section-title" style="margin-top:6px">${esc(encasMeta.emoji)} Encas <span class="count">${encasMeals.length}</span></div>`;
   for (const meal of encasMeals) {
     const mealDrinks = day.drinks.filter(d => d.meal_id === meal.id);
     html += mealCardHtml(encasMeta, meal, mealDrinks,
       { addItem: `data-add-item-meal="${meal.id}"`, addDrink: `data-add-drink-meal="${meal.id}"` });
   }
-  html += `<button class="btn btn-soft btn-block" data-add-encas style="margin-bottom:16px">${encasMeta.emoji} + Ajouter un encas</button>`;
+  html += `<button class="btn btn-soft btn-block" data-add-encas style="margin-bottom:16px">${esc(encasMeta.emoji)} + Ajouter un encas</button>`;
 
   // Boissons libres (hors repas)
   const freeDrinks = day.drinks.filter(d => !d.meal_id);
@@ -311,7 +311,7 @@ async function renderJournee() {
       <div class="meal-title" style="margin-bottom:6px"><span class="meal-emoji bg-snack">💧</span> Hydratation (hors repas)</div>
       <div class="pill-row">` + freeDrinks.map(d => {
         const dm = drinkMeta(d.drink_type);
-        return `<span class="pill">${dm.emoji} ${dm.label} · ${d.glasses}
+        return `<span class="pill">${esc(dm.emoji)} ${dm.label} · ${d.glasses}
           <span class="x" data-del-drink="${d.id}">✕</span></span>`;
       }).join("") + `</div></div>`;
   }
@@ -375,7 +375,7 @@ function mealCardHtml(mt, meal, mealDrinks, opts = {}) {
   let h = `<div class="meal-card">
     <div class="meal-card-head">
       <div class="meal-title">
-        <span class="meal-emoji ${mt.bg}">${mt.emoji}</span>
+        <span class="meal-emoji ${mt.bg}">${esc(mt.emoji)}</span>
         <div>${mt.label}<div class="meal-time">${timeHtml}</div></div>
       </div>
       <button class="btn btn-soft btn-sm" ${opts.addItem || ""}>+ Aliment</button>
@@ -406,7 +406,7 @@ function mealCardHtml(mt, meal, mealDrinks, opts = {}) {
   if (mealDrinks.length) {
     h += `<div class="pill-row">` + mealDrinks.map(d => {
       const dm = drinkMeta(d.drink_type);
-      return `<span class="pill">${dm.emoji} ${dm.label} · ${d.glasses} verre${d.glasses > 1 ? "s" : ""}
+      return `<span class="pill">${esc(dm.emoji)} ${dm.label} · ${d.glasses} verre${d.glasses > 1 ? "s" : ""}
         <span class="x" data-del-drink="${d.id}">✕</span></span>`;
     }).join("") + `</div>`;
   }
@@ -423,7 +423,7 @@ function openEditItemModal(item) {
   let kind = item.quantity_kind, number = item.quantity_number;
 
   const overlay = openModal(`
-    <div class="modal-head"><h2>✏️ ${emoji} ${esc(name)}</h2><button class="modal-close">✕</button></div>
+    <div class="modal-head"><h2>✏️ ${esc(emoji)} ${esc(name)}</h2><button class="modal-close">✕</button></div>
     <div class="field"><label>Quantité</label>
       <div class="qty-grid" id="e-qty"></div>
       <input type="number" id="e-num" placeholder="Nombre (ex : 2)" step="0.5" min="0"
@@ -549,7 +549,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
   }
 
   const overlay = openModal(`
-    <div class="modal-head"><h2>${meta.emoji} ${meta.label} · aliments</h2>
+    <div class="modal-head"><h2>${esc(meta.emoji)} ${meta.label} · aliments</h2>
       <button class="modal-close">✕</button></div>
     <div class="field time-field"><label>🕐 Heure de prise</label>
       <input type="time" id="item-time" value="${defaultTime}"></div>
@@ -604,7 +604,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
   catTabs.innerHTML =
     (favProducts.length ? `<button class="cat-tab ${activeCat === FAV ? "active" : ""}" data-cat="${FAV}">⭐ Fréquents</button>` : "") +
     state.categories.map(c =>
-      `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.emoji} ${esc(c.name)}</button>`).join("");
+      `<button class="cat-tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${esc(c.emoji)} ${esc(c.name)}</button>`).join("");
 
   const norm = s => (s || "").toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[̀-ͯ]/g, "");
   function renderProducts() {
@@ -618,7 +618,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
     grid.innerHTML = list.length ? list.map(p => {
       const kc = portionKcal(p);
       return `<button class="product-btn ${selected.has(p.id) ? "selected" : ""}" data-prod="${p.id}">
-        <span class="pe">${p.emoji || "🍴"}</span>${esc(p.name)}
+        <span class="pe">${esc(p.emoji || "🍴")}</span>${esc(p.name)}
         ${showCat && p._cat ? `<span class="pcat">${esc(p._cat)}</span>` : ""}
         ${kc != null ? `<span class="pkcal">${kc} kcal</span>` : ""}
         ${selected.has(p.id) ? '<span class="pick-check">✓</span>' : ""}</button>`;
@@ -651,7 +651,7 @@ async function openAddItemModal(mealTypeKey, opts = {}) {
       entries.map(([key, it]) => `
         <div class="tray-item" data-key="${key}">
           <div class="tray-line">
-            <span class="tname">${it.emoji} ${esc(it.name)}</span>
+            <span class="tname">${esc(it.emoji)} ${esc(it.name)}</span>
             <select class="tray-kind">
               ${QTY_KINDS.map(q => `<option value="${q.key}" ${q.key === it.quantity_kind ? "selected" : ""}>${q.label}</option>`).join("")}
             </select>
@@ -754,7 +754,7 @@ function openAddDrinkModal(mealTypeKey, opts = {}) {
   `);
   const dt = overlay.querySelector("#drink-types");
   dt.innerHTML = DRINK_TYPES.map(d =>
-    `<button class="chip ${d.key === "eau" ? "selected" : ""}" data-d="${d.key}">${d.emoji} ${d.label}</button>`).join("");
+    `<button class="chip ${d.key === "eau" ? "selected" : ""}" data-d="${d.key}">${esc(d.emoji)} ${d.label}</button>`).join("");
   dt.querySelectorAll("[data-d]").forEach(b => b.onclick = () => {
     type = b.dataset.d;
     dt.querySelectorAll(".chip").forEach(x => x.classList.remove("selected"));
@@ -958,7 +958,7 @@ function openBarcodeModal(defaultCatId, onCreated) {
       <div class="tray-nutri">🔥 ${prod.energy_kcal ?? "?"} kcal/100 g${kc != null ? ` · ~${kc} kcal / portion (${prod.portion_g} g)` : ""}</div>
       <div class="tray-nutri">🍬 ${prod.sugar_g ?? "?"} g · 🧈 ${prod.fat_g ?? "?"} g · 🥩 ${prod.protein_g ?? "?"} g · 🧂 ${prod.salt_g ?? "?"} g /100 g</div>
       <div class="field" style="margin-top:10px"><label>Ranger dans la catégorie</label>
-        <select id="bc-cat">${cats.map(c => `<option value="${c.id}" ${c.id === defaultCatId ? "selected" : ""}>${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
+        <select id="bc-cat">${cats.map(c => `<option value="${c.id}" ${c.id === defaultCatId ? "selected" : ""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")}</select></div>
       <button class="btn btn-primary btn-block" id="bc-add">➕ Ajouter au catalogue et au repas</button>
     </div>`;
     resultEl.querySelector("#bc-add").onclick = async () => {
@@ -1109,13 +1109,13 @@ function openPhotoMealModal(mealTypeKey, opts = {}) {
       const conf = it.confidence != null ? Math.round(it.confidence * 100) : null;
       return `<label class="pm-item">
         <input type="checkbox" data-i="${i}" checked>
-        <span class="pm-emoji">${it.emoji || "🍽️"}</span>
+        <span class="pm-emoji">${esc(it.emoji || "🍽️")}</span>
         <span class="pm-name">${esc(it.name)}${conf != null && conf < 55 ? ` <span class="pm-doubt">?</span>` : ""}</span>
         <span class="pm-kcal">${kc} kcal${it.grams ? ` · ${Math.round(it.grams)} g` : ""}</span>
       </label>`;
     }).join("") + `</div>
       <div class="field" style="margin-top:10px"><label>Ranger les nouveaux aliments dans</label>
-        <select id="pm-cat">${cats.map(c => `<option value="${c.id}" ${c.id === defaultCat ? "selected" : ""}>${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
+        <select id="pm-cat">${cats.map(c => `<option value="${c.id}" ${c.id === defaultCat ? "selected" : ""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")}</select></div>
       <button class="btn btn-primary btn-block" id="pm-add">➕ Ajouter au repas</button>`;
 
     resultEl.querySelector("#pm-add").onclick = async () => {
@@ -1520,7 +1520,7 @@ async function renderAnalyses() {
     </div>`;
   const flag = (s, warn) => `
     <div class="food-flag">
-      <span class="ff-emoji">${s.emoji}</span>
+      <span class="ff-emoji">${esc(s.emoji)}</span>
       <div class="ff-body"><div class="ff-name">${esc(s.name)}</div><div class="ff-sub">${s.n} observation${s.n > 1 ? "s" : ""}</div></div>
       <div class="ff-score ${warn ? "warn" : "good"}">${FEELINGS.find(f => f.v === Math.round(s.avg))?.e || ""} ${s.avg.toFixed(1)}/5</div>
     </div>`;
@@ -1625,7 +1625,7 @@ async function renderAnalyses() {
   if (topFoods.length) {
     html += `<div class="analysis-card">
       <h3>🍽️ Aliments les plus consommés</h3>
-      ${topFoods.map(f => bar(`${f.emoji} ${esc(f.name)}`, f.count, maxFood, { right: `${f.count}×` })).join("")}</div>`;
+      ${topFoods.map(f => bar(`${esc(f.emoji)} ${esc(f.name)}`, f.count, maxFood, { right: `${f.count}×` })).join("")}</div>`;
   }
 
   // Répartition par catégorie
@@ -1666,7 +1666,7 @@ async function renderAnalyses() {
     html += `<div class="analysis-card">
       <h3>⚠️ Aliments souvent suivis d'un inconfort</h3>
       <div class="sub">Part des observations « pas normal » après cet aliment (≥ ${MIN_OBS} observations).</div>
-      ${stateWatch.map(s => bar(`${s.emoji} ${esc(s.name)}`, s.bad, s.n, { cls: "warn", right: `${s.bad}/${s.n} (${Math.round(s.rate * 100)}%)` })).join("")}</div>`;
+      ${stateWatch.map(s => bar(`${esc(s.emoji)} ${esc(s.name)}`, s.bad, s.n, { cls: "warn", right: `${s.bad}/${s.n} (${Math.round(s.rate * 100)}%)` })).join("")}</div>`;
   }
 
   // Activité
@@ -1925,7 +1925,7 @@ async function openRemindersManager() {
         REMINDER_DAYS.map((d, i) => `<option value="${i}" ${r.weekday === i ? "selected" : ""}>${d}</option>`).join("");
       return `<div class="rem-row ${r.enabled ? "" : "off"}" data-id="${r.id}">
         <div class="rem-main">
-          <span class="rem-emoji">${r.emoji || "⏰"}</span>
+          <span class="rem-emoji">${esc(r.emoji || "⏰")}</span>
           <input class="rem-label" data-f="label" type="text" value="${esc(r.label || "")}" placeholder="Nom du rappel">
           <label class="rem-switch" title="Activer / désactiver">
             <input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""}><span></span>
@@ -2223,7 +2223,7 @@ function openProductForm(existing = null) {
   const overlay = openModal(`
     <div class="modal-head"><h2>${isEdit ? "✏️ Modifier le produit" : "➕ Nouveau produit"}</h2><button class="modal-close">✕</button></div>
     <div class="field"><label>Catégorie</label>
-      <select id="p-cat">${state.categories.map(c => `<option value="${c.id}" ${c.id === existing?.category_id ? "selected" : ""}>${c.emoji} ${esc(c.name)}</option>`).join("")}</select></div>
+      <select id="p-cat">${state.categories.map(c => `<option value="${c.id}" ${c.id === existing?.category_id ? "selected" : ""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")}</select></div>
     <div class="field"><label>Nom du produit</label><input type="text" id="p-name" value="${esc(val("name"))}" placeholder="Ex : Houmous"></div>
     <div class="field"><label>Emoji (optionnel)</label><input type="text" id="p-emoji" value="${esc(val("emoji"))}" placeholder="🥙" maxlength="4"></div>
     <div class="nutri-form">
@@ -2315,7 +2315,7 @@ async function openProductManager() {
       ? `${r0(p.energy_kcal)} kcal · 🍬 ${r1(p.sugar_g || 0)}g · 🧈 ${r1(p.fat_g || 0)}g · 🥩 ${r1(p.protein_g || 0)}g /100g${p.portion_g ? ` · portion ${r0(p.portion_g)}g` : ""}`
       : `pas de valeurs nutritionnelles`;
     return `<div class="pm-row ${off ? "pm-off" : ""}">
-      <span class="pm-emoji">${p.emoji || "🍴"}</span>
+      <span class="pm-emoji">${esc(p.emoji || "🍴")}</span>
       <div class="pm-body">
         <div class="pm-name">${esc(p.name)}${p.user_id ? ' <span class="pm-tag">perso</span>' : ""}${off ? ' <span class="pm-tag off">masqué</span>' : ""}</div>
         <div class="pm-sub">${sub}</div>

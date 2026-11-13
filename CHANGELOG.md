@@ -3,6 +3,15 @@
 Toutes les évolutions notables de l'application sont consignées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/).
 
+## [2.10.6] — 2026-11-13
+### Sécurité 🔒
+- Emojis des produits, catégories et rappels désormais **échappés** à l'affichage :
+  un emoji piégé (code HTML/JS) ne peut plus s'exécuter dans l'application.
+- Catalogue partagé : nouvelle règle `supabase/securite-catalogue.sql` — seul le
+  propriétaire peut modifier les produits partagés (remplace `products-editable.sql`).
+- Analyse photo : nouvelle variable Vercel optionnelle `ALLOWED_USER_IDS` pour
+  réserver l'usage de la clé Anthropic à vos comptes.
+
 ## [2.10.5] — 2026-11-13
 ### Sécurité 🔒
 - Analyse photo : la fonction `api/analyze-meal` n'accepte plus que les utilisateurs
